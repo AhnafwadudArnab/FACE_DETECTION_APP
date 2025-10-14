@@ -24,22 +24,9 @@ MindXScope Face Detector is a cross-platform application designed to detect face
 
 ## Installation
 
-### Prerequisites
-- [Flutter SDK](https://flutter.dev/docs/get-started/install)
 - Dart SDK (comes with Flutter)
 - Android Studio / Xcode (for mobile development)
 - Python 3.10+ (for AI model training, if needed)
-
-### Clone the Repository
-```bash
-git clone https://github.com/yourusername/face-detector.git
-cd face-detector
-```
-
-### Install Dependencies
-```bash
-flutter pub get
-```
 
 ### Platform-specific Setup
 - **Android:**
@@ -54,11 +41,6 @@ flutter pub get
 ---
 
 ## Usage
-
-### Running the App
-```bash
-flutter run
-```
 
 ### Example
 - Open the app and grant camera permissions.
@@ -87,7 +69,7 @@ flutter run
 
 1. **Face Analysis Loading Screen**
    
- ![af](https://github.com/user-attachments/assets/17c5a37f-05ae-493e-98bd-8060c83e4fb4)
+<img width="350" height="608" alt="af" src="https://github.com/user-attachments/assets/17c5a37f-05ae-493e-98bd-8060c83e4fb4" />
 
 2. **Camera Interface (No Face)**
  
@@ -97,7 +79,7 @@ flutter run
  
 <img width="350" height="608" alt="m3" src="https://github.com/user-attachments/assets/6a0af3cb-1862-491f-8ecd-0d6c58ae157b" />
 
-![45](https://github.com/user-attachments/assets/934b1859-c2d4-408b-bf09-26128c7fb49c)
+<img width="350" height="608" alt="45" src="https://github.com/user-attachments/assets/934b1859-c2d4-408b-bf09-26128c7fb49c" />
 
 ---
 
