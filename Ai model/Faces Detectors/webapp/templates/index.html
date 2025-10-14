@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI Face Recogniser</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <div class="container">
+      <h1>AI Detection System</h1>
+
+      <form id="uploadForm" method="post" enctype="multipart/form-data">
+        <div class="upload-area">
+          <label class="file-drop" id="fileDrop">
+            <input id="fileInput" type="file" name="image" accept="image/*">
+            <div class="upload-text">
+              <strong>Choose an image file</strong>
+              <div class="small">Upload an image to detect objects, faces, age, and gender</div>
+            </div>
+          </label>
+
+          <div class="upload-actions">
+            <button type="submit" class="btn">Analyze Image</button>
+          </div>
+
+          <div id="filename" class="filename"></div>
+        </div>
+      </form>
+
+      {% if error %}
+        <div class="error">{{ error }}</div>
+      {% endif %}
+
+      {% if detections is defined %}
+        <h2>Detection Results</h2>
+
+        <div class="detection-summary">
+          <div class="summary-header">Detection Summary</div>
+          <div class="summary-body">
+            <div class="row"><span>Total objects detected:</span><span>{{ detections|length }}</span></div>
+            <div class="row"><span>Persons detected:</span><span>{{ detections|length }}</span></div>
+            <div class="row"><span>Devices detected:</span><span>0</span></div>
+            <div class="row"><span>Faces detected:</span><span>{{ detections|length }}</span></div>
+            <div class="row"><span>Faces analyzed:</span><span>{{ detections|length }}</span></div>
+          </div>
+        </div>
+
+        <div class="result-area">
+          <div class="result-image">
+            <img src="{{ image_url }}" alt="Result image">
+          </div>
+
+          <div class="face-analysis">
+            <h3>Face Analysis</h3>
+            <div class="analysis-box">
+              {% if detections|length == 0 %}
+                <div>No faces detected.</div>
+              {% else %}
+                {% for d in detections %}
+                  <div class="face-line" id="face-{{ d.face_id }}">
+                    <div>Face {{ d.face_id }}: Age: {{ d.age }}, Gender: {{ d.gender }}, Emotion: <span class="emotion-label">{{ d.emotion }}</span></div>
+                    <div>Age confidence: {{ '%.2f'|format(d.age_confidence) }}, Gender confidence: {{ '%.2f'|format(d.gender_confidence) }}, Emotion confidence: {{ '%.2f'|format(d.emotion_confidence) }}</div>
+                    <div class="override-controls">
+                      <select class="emotion-select">
+                        <option value="Unknown">Unknown</option>
+                        <option value="happy">happy</option>
+                        <option value="sad">sad</option>
+                        <option value="angry">angry</option>
+                        <option value="surprise">surprise</option>
+                        <option value="neutral">neutral</option>
+                      </select>
+                      <button class="btn override-save" data-face="{{ d.face_id }}">Save override</button>
+                    </div>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <footer>
+        <p>Uses existing models in the repository for detection.</p>
+      </footer>
+    </div>
+
+    <script>
+      const fileInput = document.getElementById('fileInput');
+      const fileLabel = document.getElementById('fileLabel');
+      const filenameDiv = document.getElementById('filename');
+      const fileDrop = document.getElementById('fileDrop');
+
+      fileInput.addEventListener('change', (e) => {
+        const f = e.target.files[0];
+        if (f) {
+          fileLabel.textContent = 'Change file';
+          filenameDiv.textContent = `Selected: ${f.name} (${Math.round(f.size/1024)} KB)`;
+        } else {
+          fileLabel.textContent = 'Choose an image file';
+          filenameDiv.textContent = '';
+        }
+      });
+
+      // Simple drag hint
+      fileDrop.addEventListener('dragover', (e) => { e.preventDefault(); fileDrop.style.borderColor = '#60a5fa'; });
+      fileDrop.addEventListener('dragleave', () => { fileDrop.style.borderColor = ''; });
+      fileDrop.addEventListener('drop', (e) => {
+        e.preventDefault();
+        fileDrop.style.borderColor = '';
+        const files = e.dataTransfer.files;
+        if (files.length) {
+          fileInput.files = files;
+          const event = new Event('change');
+          fileInput.dispatchEvent(event);
+        }
+      });
+
+      // Override controls
+      document.querySelectorAll('.override-save').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const fid = btn.getAttribute('data-face');
+          const container = document.getElementById(`face-${fid}`);
+          const sel = container.querySelector('.emotion-select');
+          const val = sel.value;
+          // uid should be parsed from image_url filename (if present)
+          const imgUrl = '{{ image_url or "" }}';
+          const uid = imgUrl.split('/').pop() || '';
+          try {
+            const res = await fetch('/api/override', {
+              method: 'POST', headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({uid: uid, face_id: fid, emotion: val})
+            });
+            const j = await res.json();
+            if (j.ok) {
+              container.querySelector('.emotion-label').textContent = val;
+            } else {
+              alert('Override failed');
+            }
+          } catch (err) {
+            alert('Override error: ' + err);
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

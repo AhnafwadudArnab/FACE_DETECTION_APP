@@ -1,0 +1,10 @@
+flask
+opencv-python
+numpy
+matplotlib
+scikit-learn
+joblib
+fer
+tensorflow-cpu
+Pillow
+requests
