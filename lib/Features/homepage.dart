@@ -28,16 +28,14 @@ class _HomePageState extends State<HomePage> {
   String _selectedFilter = 'clahe';
   double _filterStrength = 1.2; // used for gamma
   // debug info
-  String? _lastRawResponse;
   DateTime? _lastAnalyzedAt;
   int? _lastFacesCount;
   final ImagePicker _picker = ImagePicker();
-  // When running the Android emulator (Google AVD) use 10.0.2.2 to reach
-  // the host machine. If you're running on a physical device use the
-  // host's LAN IP (example: http://10.15.1.190:5000).
-  static const String SERVER_URL = 'http://10.15.41.155:5000';
-  //Home
-  static const String Home_server = "http://192.168.68.100:5000";
+  // Server URLs — choose based on ServerMode selection.
+  // Emulator (Google AVD): 10.0.2.2 reaches the host machine.
+  // Physical device: use the host's LAN IP.
+  static const String _emulatorServer = 'http://10.15.41.155:5000';
+  static const String _homeServer = 'http://192.168.68.100:5000';
   // server selection mode
   ServerMode _serverMode = ServerMode.auto;
 
@@ -48,13 +46,16 @@ class _HomePageState extends State<HomePage> {
     _checkServer();
   }
 
-  Future<void> _checkServer() async {
-    // choose server list based on selection
-    final servers = _serverMode == ServerMode.auto
-        ? ['http://10.15.41.155:5000', 'http://192.168.68.100:5000']
+  List<String> _getServers() {
+    return _serverMode == ServerMode.auto
+        ? [_emulatorServer, _homeServer]
         : _serverMode == ServerMode.emulator
-            ? ['http://10.15.41.155:5000']
-            : ['http://192.168.68.100:5000'];
+            ? [_emulatorServer]
+            : [_homeServer];
+  }
+
+  Future<void> _checkServer() async {
+    final servers = _getServers();
 
     try {
       final r = await http.get(Uri.parse('${servers[0]}/'), headers: {'Accept': 'text/html'}).timeout(const Duration(seconds: 3));
@@ -93,7 +94,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _navigateToCamera() async {
+  Future<void> _navigateToCamera() async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const CameraPage()),
@@ -138,11 +139,7 @@ class _HomePageState extends State<HomePage> {
     });
 
   // Determine server list from selection
-  final servers = _serverMode == ServerMode.auto
-    ? ['http://10.15.41.155:5000', 'http://192.168.68.100:5000']
-    : _serverMode == ServerMode.emulator
-      ? ['http://10.15.41.155:5000']
-      : ['http://192.168.68.100:5000'];
+  final servers = _getServers();
     String? lastError;
 
     for (final base in servers) {
@@ -168,7 +165,6 @@ class _HomePageState extends State<HomePage> {
             _isAnalyzing = false;
             _serverReachable = true;
             _serverMessage = 'Model server reachable (${base.replaceFirst('http://', '')})';
-            _lastRawResponse = res.body;
             _lastAnalyzedAt = DateTime.now();
             _lastFacesCount = (body['faces'] is List) ? (body['faces'] as List).length : null;
           });
@@ -192,11 +188,7 @@ class _HomePageState extends State<HomePage> {
 
   // POST image file to /api/enhance and return the response body
   Future<Map<String, dynamic>?> _enhanceImage(String imagePath) async {
-    final servers = _serverMode == ServerMode.auto
-        ? ['http://10.0.2.2:5000', 'http://192.168.68.104:5000']
-        : _serverMode == ServerMode.emulator
-            ? ['http://10.0.2.2:5000']
-            : ['http://192.168.68.104:5000'];
+    final servers = _getServers();
 
     for (final base in servers) {
       try {
@@ -219,11 +211,7 @@ class _HomePageState extends State<HomePage> {
 
   // Call /api/detect_file with filename in results and update analysis UI
   Future<bool> _detectFile(String filename) async {
-    final servers = _serverMode == ServerMode.auto
-        ? ['http://10.0.2.2:5000', 'http://192.168.68.104:5000']
-        : _serverMode == ServerMode.emulator
-            ? ['http://10.0.2.2:5000']
-            : ['http://192.168.68.104:5000'];
+    final servers = _getServers();
 
     for (final base in servers) {
       try {
@@ -234,7 +222,6 @@ class _HomePageState extends State<HomePage> {
           setState(() {
             _analysisResult = body;
             _isAnalyzing = false;
-            _lastRawResponse = r.body;
             _lastAnalyzedAt = DateTime.now();
             _lastFacesCount = (body['faces'] is List) ? (body['faces'] as List).length : null;
           });
@@ -247,32 +234,351 @@ class _HomePageState extends State<HomePage> {
     return false;
   }
 
+  /// A single info row: icon + bold label + value underneath.
   Widget _buildAnalysisRow(IconData icon, String label, String value) {
-    return Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFF39393B)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 13, color: Color(0xFF39393B)),
+                children: [
+                  TextSpan(
+                    text: '$label: ',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  TextSpan(text: value),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Confidence bar widget (0.0 – 1.0).
+  Widget _buildConfidenceBar(double confidence) {
+    final pct = (confidence * 100).toStringAsFixed(1);
+    final color = confidence >= 0.8
+        ? Colors.green[700]!
+        : confidence >= 0.5
+            ? Colors.orange[700]!
+            : Colors.red[700]!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: const Color(0xFF39393B)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF39393B),
-                ),
-              ),
-              Text(
-                value,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF666666)),
-              ),
-            ],
+        Row(
+          children: [
+            const Icon(Icons.bar_chart, size: 18, color: Color(0xFF39393B)),
+            const SizedBox(width: 10),
+            const Text(
+              'Confidence: ',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF39393B)),
+            ),
+            Text('$pct%',
+                style: TextStyle(
+                    fontSize: 13,
+                    color: color,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.only(left: 28.0),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: confidence.clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: Colors.grey[300],
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
           ),
         ),
       ],
     );
+  }
+
+  /// Per-face detail card showing ALL fields returned by the server.
+  Widget _buildFaceCard(Map<String, dynamic> f, int idx) {
+    final fid = f['face_id']?.toString() ?? '${idx + 1}';
+    final age = f['age']?.toString() ?? 'N/A';
+    final gender = f['gender']?.toString() ?? 'N/A';
+    final emotion = f['emotion']?.toString() ?? 'N/A';
+    final race = f['race']?.toString() ?? f['ethnicity']?.toString();
+    final rawConf = f['confidence'] ?? f['score'];
+    final double? confidence =
+        rawConf != null ? (rawConf as num).toDouble() : null;
+    final bbox = f['bbox'] ?? f['bounding_box'];
+
+    // Emotion scores map (e.g. {"happy": 0.9, "sad": 0.05, ...})
+    final emotionScores = f['emotion_scores'] as Map<String, dynamic>?;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.white,
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(14.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ──────────────────────────────────────────────────
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: const Color(0xFF1e1e2e),
+                  child: Text(
+                    fid,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Face $fid',
+                  style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1e1e2e)),
+                ),
+                const Spacer(),
+                // Edit emotion button
+                TextButton.icon(
+                  icon: const Icon(Icons.edit, size: 14),
+                  label: const Text('Edit', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4)),
+                  onPressed: () => _showEmotionOverride(f, fid),
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+
+            // ── Core fields ──────────────────────────────────────────────
+            _buildAnalysisRow(Icons.cake_outlined, 'Age', age),
+            _buildAnalysisRow(
+                gender.toLowerCase() == 'male'
+                    ? Icons.male
+                    : gender.toLowerCase() == 'female'
+                        ? Icons.female
+                        : Icons.person,
+                'Gender',
+                gender),
+            _buildAnalysisRow(_emotionIcon(emotion), 'Emotion', emotion),
+            if (race != null)
+              _buildAnalysisRow(Icons.people_outline, 'Race / Ethnicity', race),
+
+            // ── Confidence bar ───────────────────────────────────────────
+            if (confidence != null) ...[
+              const SizedBox(height: 6),
+              _buildConfidenceBar(confidence),
+            ],
+
+            // ── Bounding box ─────────────────────────────────────────────
+            if (bbox != null) ...[
+              const SizedBox(height: 4),
+              _buildAnalysisRow(
+                Icons.crop_free,
+                'Bounding Box',
+                _formatBbox(bbox),
+              ),
+            ],
+
+            // ── Emotion scores breakdown ─────────────────────────────────
+            if (emotionScores != null && emotionScores.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Emotion Scores',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF39393B)),
+              ),
+              const SizedBox(height: 4),
+              ...emotionScores.entries.map((e) {
+                final v = (e.value as num).toDouble();
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 72,
+                        child: Text(e.key,
+                            style: const TextStyle(
+                                fontSize: 11, color: Color(0xFF555555))),
+                      ),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: v.clamp(0.0, 1.0),
+                            minHeight: 5,
+                            backgroundColor: Colors.grey[200],
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                _emotionColor(e.key)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text('${(v * 100).toStringAsFixed(0)}%',
+                          style: const TextStyle(
+                              fontSize: 11, color: Color(0xFF555555))),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _emotionIcon(String emotion) {
+    switch (emotion.toLowerCase()) {
+      case 'happy':
+        return Icons.sentiment_very_satisfied;
+      case 'sad':
+        return Icons.sentiment_very_dissatisfied;
+      case 'angry':
+        return Icons.mood_bad;
+      case 'surprised':
+        return Icons.sentiment_satisfied_alt;
+      case 'fear':
+        return Icons.warning_amber_outlined;
+      case 'disgust':
+        return Icons.sick_outlined;
+      default:
+        return Icons.sentiment_neutral;
+    }
+  }
+
+  Color _emotionColor(String emotion) {
+    switch (emotion.toLowerCase()) {
+      case 'happy':
+        return Colors.amber;
+      case 'sad':
+        return Colors.blue;
+      case 'angry':
+        return Colors.red;
+      case 'surprised':
+        return Colors.purple;
+      case 'fear':
+        return Colors.orange;
+      case 'disgust':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatBbox(dynamic bbox) {
+    if (bbox is List && bbox.length >= 4) {
+      final vals = bbox.map((v) => (v as num).toStringAsFixed(0)).toList();
+      return 'x:${vals[0]}  y:${vals[1]}  w:${vals[2]}  h:${vals[3]}';
+    }
+    if (bbox is Map) {
+      final x = bbox['x'] ?? bbox['left'] ?? '?';
+      final y = bbox['y'] ?? bbox['top'] ?? '?';
+      final w = bbox['w'] ?? bbox['width'] ?? '?';
+      final h = bbox['h'] ?? bbox['height'] ?? '?';
+      return 'x:$x  y:$y  w:$w  h:$h';
+    }
+    return bbox.toString();
+  }
+
+  Future<void> _showEmotionOverride(
+      Map<String, dynamic> f, String fid) async {
+    final femo = f['emotion']?.toString() ?? 'neutral';
+    final emotions = [
+      'neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust'
+    ];
+    final picked = await showDialog<String?>(
+      context: context,
+      builder: (_) {
+        String sel = femo;
+        return AlertDialog(
+          title: const Text('Override emotion'),
+          content: StatefulBuilder(builder: (c, setS) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: emotions.map((e) {
+                return RadioListTile<String>(
+                  title: Text(e),
+                  value: e,
+                  groupValue: sel,
+                  onChanged: (v) => setS(() => sel = v ?? sel),
+                );
+              }).toList(),
+            );
+          }),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(context).pop(null),
+                child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.of(context).pop(sel),
+                child: const Text('Save')),
+          ],
+        );
+      },
+    );
+
+    if (picked == null || picked == femo) return;
+
+    final servers = _getServers();
+    bool done = false;
+    for (final base in servers) {
+      try {
+        final resp = await http
+            .post(
+              Uri.parse('$base/api/override'),
+              headers: {'Content-Type': 'application/json'},
+              body: json.encode({
+                'uid': _analysisResult?['uid'],
+                'face_id': fid,
+                'emotion': picked,
+              }),
+            )
+            .timeout(const Duration(seconds: 5));
+        if (resp.statusCode == 200) {
+          setState(() {
+            if (_analysisResult != null &&
+                _analysisResult!['faces'] is List) {
+              for (var item in _analysisResult!['faces'] as List) {
+                if ((item['face_id']?.toString() ?? '') == fid) {
+                  item['emotion'] = picked;
+                }
+              }
+            }
+          });
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Override saved')));
+          done = true;
+          break;
+        }
+      } catch (_) {}
+    }
+    if (!done && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to save override')));
+    }
   }
 
   @override
@@ -282,9 +588,8 @@ class _HomePageState extends State<HomePage> {
     final screenHeight = mq.size.height;
 
     // responsive sizes
-    final imageWidth = screenWidth * 0.9; // use most of width
-    final imageHeight = screenHeight * 0.28; // avoid taking too much vertical space
-  final cardHeight = screenHeight * 0.43;
+    final imageWidth = screenWidth * 0.9;
+    final imageHeight = screenHeight * 0.28;
 
   // per-face details will be shown in the list below
     final String objectText = _analysisResult?['object']?.toString() ?? 'Human Face';
@@ -432,7 +737,6 @@ class _HomePageState extends State<HomePage> {
               Center(
                 child: Container(
                   width: screenWidth * 0.9,
-                  constraints: BoxConstraints(maxHeight: cardHeight.clamp(280.0, 440.0).toDouble()),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE0E0E0),
                     borderRadius: BorderRadius.circular(40),
@@ -517,7 +821,9 @@ class _HomePageState extends State<HomePage> {
                                                   const SizedBox(width: 8),
                                                   ElevatedButton(
                                                     onPressed: () async {
-                                                      final annotatedUrl = _analysisResult!['annotated_url'] as String;
+                                                      final result = _analysisResult;
+                                                      if (result == null || result['annotated_url'] is! String) return;
+                                                      final annotatedUrl = result['annotated_url'] as String;
                                                       final uri = Uri.parse(annotatedUrl);
                                                       final fname = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : null;
                                                       if (fname == null) return;
@@ -573,7 +879,9 @@ class _HomePageState extends State<HomePage> {
                                                     onPressed: _isAnalyzing
                                                         ? null
                                                         : () async {
-                                                            final url = _analysisResult!['annotated_url'] as String;
+                                                            final result = _analysisResult;
+                                                            if (result == null || result['annotated_url'] is! String) return;
+                                                            final url = result['annotated_url'] as String;
                                                             final uri = Uri.parse(url);
                                                             final fname = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : null;
                                                             if (fname == null) return;
@@ -596,114 +904,17 @@ class _HomePageState extends State<HomePage> {
                                       ],
                                     ),
                                   if (_analysisResult != null && _analysisResult!['faces'] is List)
-                                    SizedBox(
-                                      height: 120,
-                                      child: ListView.builder(
-                                        itemCount: (_analysisResult!['faces'] as List).length,
-                                        itemBuilder: (context, idx) {
-                                          final f = (_analysisResult!['faces'] as List)[idx] as Map<String, dynamic>;
-                                          final fid = f['face_id'] ?? idx + 1;
-                                          final fag = f['age']?.toString() ?? 'N/A';
-                                          final fgen = f['gender']?.toString() ?? 'N/A';
-                                          final femo = f['emotion']?.toString() ?? 'N/A';
-                                          return ListTile(
-                                            onTap: () {
-                                              showDialog(
-                                                  context: context,
-                                                  builder: (_) => Dialog(
-                                                        child: Column(
-                                                          mainAxisSize: MainAxisSize.min,
-                                                          children: [
-                                                            if (_currentImagePath != null) Image.file(File(_currentImagePath!)),
-                                                            Padding(
-                                                              padding: const EdgeInsets.all(8.0),
-                                                              child: Text('Face $fid — Age: $fag, Gender: $fgen, Emotion: $femo'),
-                                                            )
-                                                          ],
-                                                        ),
-                                                      ));
-                                            },
-                                            leading: const Icon(Icons.face),
-                                            title: Text('Face $fid'),
-                                            subtitle: Text('Age: $fag • Gender: $fgen • Emotion: $femo'),
-                                            trailing: TextButton(
-                                              child: const Text('Edit'),
-                                              onPressed: () async {
-                                                // show emotion picker
-                                                final emotions = ['neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust'];
-                                                String? picked = await showDialog<String?>(
-                                                  context: context,
-                                                  builder: (_) {
-                                                    String sel = femo;
-                                                    return AlertDialog(
-                                                      title: const Text('Override emotion'),
-                                                      content: StatefulBuilder(builder: (c, setS) {
-                                                        return Column(
-                                                          mainAxisSize: MainAxisSize.min,
-                                                          children: emotions.map((e) {
-                                                            return RadioListTile<String>(
-                                                              title: Text(e),
-                                                              value: e,
-                                                              groupValue: sel,
-                                                              onChanged: (v) => setS(() => sel = v ?? sel),
-                                                            );
-                                                          }).toList(),
-                                                        );
-                                                      }),
-                                                      actions: [
-                                                        TextButton(onPressed: () => Navigator.of(context).pop(null), child: const Text('Cancel')),
-                                                        TextButton(onPressed: () => Navigator.of(context).pop(sel), child: const Text('Save')),
-                                                      ],
-                                                    );
-                                                  },
-                                                );
-
-                                                if (picked != null && picked != femo) {
-                                                  // send override to server
-                                                  final servers = _serverMode == ServerMode.auto
-                                                      ? ['http://10.0.2.2:5000', 'http://192.168.68.104:5000']
-                                                      : _serverMode == ServerMode.emulator
-                                                          ? ['http://10.0.2.2:5000']
-                                                          : ['http://192.168.68.104:5000'];
-
-                                                  bool done = false;
-                                                  for (final base in servers) {
-                                                    try {
-                                                      final resp = await http
-                                                          .post(Uri.parse('$base/api/override'),
-                                                              headers: {'Content-Type': 'application/json'},
-                                                              body: json.encode({'uid': _analysisResult?['uid'], 'face_id': fid, 'emotion': picked}))
-                                                          .timeout(const Duration(seconds: 5));
-                                                      if (resp.statusCode == 200) {
-                                                        // update local model
-                                                        setState(() {
-                                                          if (_analysisResult != null && _analysisResult!['faces'] is List) {
-                                                            final list = _analysisResult!['faces'] as List;
-                                                            for (var item in list) {
-                                                              if ((item['face_id'] ?? -1) == fid) {
-                                                                item['emotion'] = picked;
-                                                              }
-                                                            }
-                                                          }
-                                                        });
-                                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Override saved')));
-                                                        done = true;
-                                                        break;
-                                                      }
-                                                    } catch (e) {
-                                                      // try next
-                                                    }
-                                                  }
-
-                                                  if (!done) {
-                                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to save override')));
-                                                  }
-                                                }
-                                              },
-                                            ),
-                                          );
-                                        },
-                                      ),
+                                    Column(
+                                      children: [
+                                        for (int idx = 0;
+                                            idx < (_analysisResult!['faces'] as List).length;
+                                            idx++)
+                                          _buildFaceCard(
+                                            (_analysisResult!['faces'] as List)[idx]
+                                                as Map<String, dynamic>,
+                                            idx,
+                                          ),
+                                      ],
                                     ),
                                   const SizedBox(height: 8),
                                   const Center(
