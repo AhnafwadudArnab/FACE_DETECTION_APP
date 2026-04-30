@@ -1,150 +1,206 @@
-# Face Detector
+<div align="center">
 
-> **Project Name:** MindXScope Face Detector
+<img src="https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white" />
+<img src="https://img.shields.io/badge/Dart-3.x-0175C2?style=for-the-badge&logo=dart&logoColor=white" />
+<img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" />
+<img src="https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web-lightgrey?style=for-the-badge" />
+<img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" />
 
----
+# 🧠 MindXScope — AI Face Analysis
 
-## Overview
+**Real-time face detection with age, gender, emotion & race analysis — powered by a custom AI model and built with Flutter.**
 
-MindXScope Face Detector is a cross-platform application designed to detect faces using advanced AI models. Built with Flutter and integrated with custom AI models, it supports Android, iOS, and web platforms. The project leverages modern machine learning techniques for real-time face detection and recognition.
-
----
-
-## Features
-
-- Real-time face detection using AI models
-- Multi-platform support: Android, iOS, Web, Windows
-- Camera integration for live detection
-- Image picker for static image analysis
-- Modular architecture for easy extension
-- User-friendly interface
-- High accuracy and performance
+</div>
 
 ---
 
-## Installation
+## ✨ Features
 
-- Dart SDK (comes with Flutter)
-- Android Studio / Xcode (for mobile development)
-- Python 3.10+ (for AI model training, if needed)
-
-### Platform-specific Setup
-- **Android:**
-  - Open `android/` in Android Studio and run on an emulator or device.
-- **iOS:**
-  - Open `ios/Runner.xcworkspace` in Xcode and run on a simulator or device.
-- **Web:**
-  - Run `flutter run -d chrome`.
-- **Windows:**
-  - Run `flutter run -d windows`.
-
----
-
-## Usage
-
-### Example
-- Open the app and grant camera permissions.
-- Point the camera at a face to see real-time detection.
-- Use the gallery to select an image for analysis.
+| Feature | Description |
+|---|---|
+| 🎯 **Face Detection** | Detects multiple faces in a single image |
+| 🎂 **Age Estimation** | Predicts approximate age with confidence score |
+| ⚧ **Gender Classification** | Male / Female detection with confidence bar |
+| 😊 **Emotion Recognition** | 7 emotions — Happy, Sad, Angry, Surprised, Fear, Disgust, Neutral |
+| 🌍 **Race / Ethnicity** | Ethnicity classification per face |
+| 📊 **Emotion Breakdown** | Animated bar chart showing all emotion scores |
+| ✏️ **Emotion Override** | Manually correct emotion labels and sync to server |
+| 📷 **Camera Integration** | Full-screen live camera with flash & front/back switch |
+| 🖼️ **Gallery Picker** | Analyze any image from device gallery |
+| 🌐 **Server Status** | Live server health indicator with auto wake-up (Render cold start) |
+| 📋 **Copy JSON** | Export raw analysis result to clipboard |
+| 🎨 **Dark UI** | Polished dark theme with animated face cards |
 
 ---
 
+## 📸 Screenshots
 
-## Screenshots
+### Mobile App
+
+| Home Screen | Camera | Analysis Results |
+|---|---|---|
+| <img width="250" src="https://github.com/user-attachments/assets/17c5a37f-05ae-493e-98bd-8060c83e4fb4" /> | <img width="250" src="https://github.com/user-attachments/assets/7bddcb86-edf9-4fb8-91ee-3105b409fb14" /> | <img width="250" src="https://github.com/user-attachments/assets/934b1859-c2d4-408b-bf09-26128c7fb49c" /> |
 
 ### Web Version
 
-1. **Main Upload Page**
-   <img width="894" height="337" alt="1" src="https://github.com/user-attachments/assets/41910e1e-eeb2-4c92-9a48-c2d9e098bdb2" />
-
-2. **Detection Results (Summary and Face Analysis)**
-   
-<img width="778" height="896" alt="2" src="https://github.com/user-attachments/assets/19a90db7-b851-4fb7-8cc6-58cb28e52395" />
-
-3. **Detection Results (Detailed View)**
-   
-<img width="714" height="746" alt="3" src="https://github.com/user-attachments/assets/34e2a119-de76-4e1a-aa3f-509f4a5da3bd" />
-
-### Mobile Version
-
-1. **Face Analysis Loading Screen**
-   
-<img width="350" height="608" alt="af" src="https://github.com/user-attachments/assets/17c5a37f-05ae-493e-98bd-8060c83e4fb4" />
-
-2. **Camera Interface (No Face)**
- 
-<img width="478" height="915" alt="camera" src="https://github.com/user-attachments/assets/7bddcb86-edf9-4fb8-91ee-3105b409fb14" />
-
-3. **Camera Interface (With Object)**
- 
-<img width="350" height="608" alt="m3" src="https://github.com/user-attachments/assets/6a0af3cb-1862-491f-8ecd-0d6c58ae157b" />
-
-<img width="350" height="608" alt="45" src="https://github.com/user-attachments/assets/934b1859-c2d4-408b-bf09-26128c7fb49c" />
+| Upload Page | Detection Summary | Detailed Results |
+|---|---|---|
+| <img src="https://github.com/user-attachments/assets/41910e1e-eeb2-4c92-9a48-c2d9e098bdb2" /> | <img src="https://github.com/user-attachments/assets/19a90db7-b851-4fb7-8cc6-58cb28e52395" /> | <img src="https://github.com/user-attachments/assets/34e2a119-de76-4e1a-aa3f-509f4a5da3bd" /> |
 
 ---
 
-
-## Project Structure
+## 🏗️ Architecture
 
 ```
-face-detector/
-├── Ai model/
-│   ├── Faces Detectors/
-│   ├── ai_detector_env/
-│   ├── assets/
-│   ├── DataSets/
-│   ├── Models/
-│   └── webapp/
-├── android/
-├── ios/
+MindXScope/
 ├── lib/
-│   ├── main.dart
+│   ├── main.dart               # App entry point, camera init
 │   └── Features/
-├── test/
-├── web/
-├── windows/
-├── pubspec.yaml
-└── README.md
+│       ├── homepage.dart       # Main analysis UI + API calls
+│       └── camera.dart         # Full-screen camera with controls
+│
+├── Ai model/
+│   ├── Faces Detectors/        # Core detection model
+│   ├── Models/                 # Trained model files
+│   ├── DataSets/               # Training datasets
+│   └── webapp/                 # Python Flask/FastAPI backend
+│
+├── android/                    # Android platform config
+├── ios/                        # iOS platform config
+├── web/                        # Web platform config
+└── windows/                    # Windows platform config
 ```
 
 ---
 
-## Development Notes
+## 🔧 Tech Stack
 
-- **AI Model:**
-  - Custom models are stored in `Ai model/Models/`.
-  - Training scripts and datasets are in `Ai model/DataSets/`.
-  - Python environment for model development: `Ai model/ai_detector_env/`.
-- **Flutter App:**
-  - Main entry: `lib/main.dart`
-  - Features: `lib/Features/`
-- **Assets:**
-  - Place images, models, and other resources in `Ai model/assets/`.
+**Frontend (Mobile & Web)**
+- [Flutter](https://flutter.dev/) — cross-platform UI framework
+- `camera` — live camera preview & capture
+- `image_picker` — gallery image selection
+- `http` — REST API communication
+
+**Backend (AI Server)**
+- Python 3.10+
+- Custom face detection & attribute analysis model
+- Hosted on [Render](https://render.com) — `https://face-detection-app-9ea5.onrender.com`
 
 ---
 
-## Contributing
+## 🚀 Getting Started
 
-Contributions are welcome! Please open issues and submit pull requests for improvements or bug fixes.
+### Prerequisites
+
+- Flutter SDK `^3.x` — [Install Flutter](https://docs.flutter.dev/get-started/install)
+- Dart SDK `^3.8.1` (bundled with Flutter)
+- Android Studio / Xcode for mobile builds
+
+### Installation
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/yourusername/mindxscope.git
+cd mindxscope
+
+# 2. Install dependencies
+flutter pub get
+
+# 3. Run the app
+flutter run                  # auto-detect connected device
+flutter run -d chrome        # web
+flutter run -d android       # Android
+flutter run -d ios           # iOS
+```
+
+### Android Permissions
+
+Camera and storage permissions are handled automatically via `permission_handler`. Make sure your device allows camera access when prompted.
+
+---
+
+## 🌐 API Reference
+
+The app communicates with a hosted Python backend.
+
+**Base URL:** `https://face-detection-app-9ea5.onrender.com`
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/` | GET | Health check / wake-up ping |
+| `/api/detect` | POST | Analyze image — returns faces array |
+| `/api/override` | POST | Override emotion label for a face |
+
+**`/api/detect` Response Example:**
+```json
+{
+  "uid": "abc123",
+  "object": "Human Face",
+  "annotated_url": "https://...",
+  "faces": [
+    {
+      "face_id": "1",
+      "age": "25",
+      "gender": "Male",
+      "emotion": "Happy",
+      "race": "Asian",
+      "bbox": [120, 80, 200, 220],
+      "age_confidence": 0.87,
+      "gender_confidence": 0.94,
+      "emotion_confidence": 0.76,
+      "emotion_scores": {
+        "happy": 0.76,
+        "neutral": 0.14,
+        "sad": 0.05,
+        "angry": 0.03,
+        "surprised": 0.01,
+        "fear": 0.01,
+        "disgust": 0.00
+      }
+    }
+  ]
+}
+```
+
+---
+
+## 📱 Platform Support
+
+| Platform | Status |
+|---|---|
+| Android | ✅ Supported |
+| iOS | ✅ Supported |
+| Web (Chrome) | ✅ Supported |
+| Windows | ✅ Supported |
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/YourFeature`)
-3. Commit your changes (`git commit -am 'Add new feature'`)
-4. Push to the branch (`git push origin feature/YourFeature`)
-5. Open a pull request
+2. Create your feature branch — `git checkout -b feature/your-feature`
+3. Commit your changes — `git commit -m 'Add your feature'`
+4. Push to the branch — `git push origin feature/your-feature`
+5. Open a Pull Request
 
 ---
 
-## License
+## 📄 License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 👤 Author
+
+**Your Name**
+- GitHub: [@yourusername](https://github.com/yourusername)
+- Email: your.email@example.com
 
 ---
 
-## Contact
-
-- **Author:** Your Name
-- **Email:** your.email@example.com
-- **GitHub:** [yourusername](https://github.com/yourusername)
-
----
+<div align="center">
+  <sub>Built with ❤️ using Flutter & AI</sub>
+</div>
