@@ -1,4 +1,4 @@
-# Face Detector
+# A Face Detector App
 
 > **Project Name:** MindXScope Face Detector
 
@@ -100,17 +100,6 @@ face-detector/
 
 ---
 
-## Contributing
-
-Contributions are welcome! Please open issues and submit pull requests for improvements or bug fixes.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/YourFeature`)
-3. Commit your changes (`git commit -am 'Add new feature'`)
-4. Push to the branch (`git push origin feature/YourFeature`)
-5. Open a pull request
-
----
 
 ## License
 
