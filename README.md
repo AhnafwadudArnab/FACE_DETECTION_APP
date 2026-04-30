@@ -110,7 +110,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Contact
 
 - **Author:** ROZ
-- **Email:** ahanfwadudarnob@gmial.com
+- **Email:** ahanafwadudarnob@gmail.com
 - **GitHub:** [Arnab~[ROZ]]([https://github.com/yourusername](https://github.com/AhnafwadudArnab))
 
 ---
