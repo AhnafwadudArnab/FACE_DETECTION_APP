@@ -135,17 +135,25 @@ class _CameraPageState extends State<CameraPage>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ── Full-screen camera preview ──────────────────────────────
+          // ── Full-screen camera preview with correct aspect ratio ────
           _isCameraInitialized && _controller != null
-              ? CameraPreview(_controller!)
+              ? SizedBox.expand(
+                  child: FittedBox(
+                    fit: BoxFit.cover,
+                    child: SizedBox(
+                      width: _controller!.value.previewSize!.height,
+                      height: _controller!.value.previewSize!.width,
+                      child: CameraPreview(_controller!),
+                    ),
+                  ),
+                )
               : Container(
                   color: Colors.black,
                   child: const Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(
-                            color: Color(0xFF6C63FF)),
+                        CircularProgressIndicator(color: Color(0xFF6C63FF)),
                         SizedBox(height: 16),
                         Text('Initializing Camera...',
                             style: TextStyle(

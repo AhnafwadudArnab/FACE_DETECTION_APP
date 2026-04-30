@@ -18,6 +18,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String? _currentImagePath;
   bool _serverReachable = false;
+  bool _isCheckingServer = false;
+  String _serverStatus = 'Waking up server...';
   bool _isAnalyzing = false;
   String? _analysisError;
   Map<String, dynamic>? _analysisResult;
@@ -31,21 +33,53 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _currentImagePath = widget.capturedImagePath;
-    _checkServer();
+    // Run in background so UI renders immediately
+    Future.microtask(() => _wakeUpServer());
   }
 
   List<String> _getServers() => [_serverUrl];
 
-  Future<void> _checkServer() async {
-    try {
-      final r = await http
-          .get(Uri.parse('$_serverUrl/'), headers: {'Accept': 'text/html'})
-          .timeout(const Duration(seconds: 5));
-      setState(() => _serverReachable = r.statusCode == 200);
-    } catch (_) {
-      setState(() => _serverReachable = false);
+  /// Pings server with long timeout + auto-retry for Render cold start.
+  Future<void> _wakeUpServer() async {
+    if (_isCheckingServer) return;
+    setState(() {
+      _isCheckingServer = true;
+      _serverStatus = 'Waking up server...';
+    });
+
+    // Try up to 4 times with 20s timeout each (handles Render 50s cold start)
+    for (int attempt = 1; attempt <= 4; attempt++) {
+      try {
+        final r = await http
+            .get(Uri.parse('$_serverUrl/'), headers: {'Accept': 'text/html'})
+            .timeout(const Duration(seconds: 20));
+        if (r.statusCode == 200) {
+          if (mounted) {
+            setState(() {
+              _serverReachable = true;
+              _isCheckingServer = false;
+              _serverStatus = 'Online';
+            });
+          }
+          return;
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() => _serverStatus = 'Waking up... (attempt $attempt/4)');
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _serverReachable = false;
+        _isCheckingServer = false;
+        _serverStatus = 'Offline';
+      });
     }
   }
+
+  Future<void> _checkServer() => _wakeUpServer();
 
   Future<void> _navigateToCamera() async {
     final result = await Navigator.push(
@@ -85,6 +119,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _analyzeImage(String imagePath) async {
+    // Wake server first if not reachable (non-blocking check)
+    if (!_serverReachable && !_isCheckingServer) {
+      _wakeUpServer(); // fire and forget — analyze will retry on its own
+    }
     setState(() {
       _isAnalyzing = true;
       _analysisError = null;
@@ -409,33 +447,48 @@ class _HomePageState extends State<HomePage> {
                         decoration: BoxDecoration(
                           color: _serverReachable
                               ? const Color(0xFF1A3A2A)
-                              : const Color(0xFF3A1A1A),
+                              : _isCheckingServer
+                                  ? const Color(0xFF2A2A1A)
+                                  : const Color(0xFF3A1A1A),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: _serverReachable
                                 ? const Color(0xFF2ECC71)
-                                : const Color(0xFFE74C3C),
+                                : _isCheckingServer
+                                    ? const Color(0xFFF39C12)
+                                    : const Color(0xFFE74C3C),
                           ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              width: 7, height: 7,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _serverReachable
-                                    ? const Color(0xFF2ECC71)
-                                    : const Color(0xFFE74C3C),
+                            if (_isCheckingServer)
+                              const SizedBox(
+                                width: 7, height: 7,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: Color(0xFFF39C12),
+                                ),
+                              )
+                            else
+                              Container(
+                                width: 7, height: 7,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _serverReachable
+                                      ? const Color(0xFF2ECC71)
+                                      : const Color(0xFFE74C3C),
+                                ),
                               ),
-                            ),
                             const SizedBox(width: 6),
                             Text(
-                              _serverReachable ? 'Online' : 'Offline',
+                              _serverStatus,
                               style: TextStyle(
                                 color: _serverReachable
                                     ? const Color(0xFF2ECC71)
-                                    : const Color(0xFFE74C3C),
+                                    : _isCheckingServer
+                                        ? const Color(0xFFF39C12)
+                                        : const Color(0xFFE74C3C),
                                 fontSize: 11, fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -443,6 +496,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
+
                   ],
                 ),
               ),
@@ -462,11 +516,13 @@ class _HomePageState extends State<HomePage> {
               // ── Image preview card ────────────────────────────────────
               Container(
                 width: double.infinity,
-                height: imageHeight.clamp(200.0, 320.0),
+                height: imageHeight.clamp(200.0, 260.0),
                 decoration: BoxDecoration(
                   color: _surface,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.07)),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: const Color(0xFF6C63FF).withOpacity(0.25),
+                      width: 1.5),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: _currentImagePath != null
@@ -475,7 +531,7 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           Image.file(
                             File(_currentImagePath!),
-                            fit: BoxFit.cover,
+                            fit: BoxFit.contain,
                             filterQuality: FilterQuality.high,
                             gaplessPlayback: true,
                             errorBuilder: (_, __, ___) => const Center(
@@ -642,14 +698,27 @@ class _HomePageState extends State<HomePage> {
                             if (_analysisResult != null &&
                                 _analysisResult!['annotated_url'] is String) ...[
                               ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: Image.network(
-                                  _analysisResult!['annotated_url'],
-                                  width: double.infinity,
-                                  height: 160,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Icon(Icons.broken_image, color: _textSec),
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                        color: const Color(0xFF6C63FF)
+                                            .withOpacity(0.25),
+                                        width: 1.5),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(19),
+                                    child: Image.network(
+                                      _analysisResult!['annotated_url'],
+                                      width: double.infinity,
+                                      height: 200,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                          Icons.broken_image,
+                                          color: _textSec),
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 16),
