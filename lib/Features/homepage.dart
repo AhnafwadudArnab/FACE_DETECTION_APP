@@ -42,12 +42,14 @@ class _HomePageState extends State<HomePage> {
   /// Pings server with long timeout + auto-retry for Render cold start.
   Future<void> _wakeUpServer() async {
     if (_isCheckingServer) return;
-    setState(() {
-      _isCheckingServer = true;
-      _serverStatus = 'Waking up server...';
-    });
+    if (mounted) {
+      setState(() {
+        _isCheckingServer = true;
+        _serverStatus = 'Waking up server...';
+        _serverReachable = false;
+      });
+    }
 
-    // Try up to 4 times with 20s timeout each (handles Render 50s cold start)
     for (int attempt = 1; attempt <= 4; attempt++) {
       try {
         final r = await http
@@ -62,6 +64,10 @@ class _HomePageState extends State<HomePage> {
             });
           }
           return;
+        } else {
+          if (mounted) {
+            setState(() => _serverStatus = 'Waking up... (attempt $attempt/4)');
+          }
         }
       } catch (_) {
         if (mounted) {
@@ -138,7 +144,7 @@ class _HomePageState extends State<HomePage> {
       try {
         final request = http.MultipartRequest('POST', uri);
         request.files.add(await http.MultipartFile.fromPath('image', imagePath));
-        final streamed = await request.send().timeout(const Duration(seconds: 10));
+        final streamed = await request.send().timeout(const Duration(seconds: 60));
         final res = await http.Response.fromStream(streamed);
         if (res.statusCode == 200) {
           final Map<String, dynamic> body = json.decode(res.body);
