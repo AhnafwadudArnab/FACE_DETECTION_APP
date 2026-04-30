@@ -22,6 +22,10 @@ MindXScope Face Detector is a cross-platform application designed to detect face
 
 ---
 
+## Apk Link : ( https://drive.google.com/file/d/1L7dbZVIW75QHfJr90V7ac0eRUi4xveSG/view?usp=sharing )
+
+
+
 ## Installation
 
 - Dart SDK (comes with Flutter)
