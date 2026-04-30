@@ -52,36 +52,13 @@ MindXScope Face Detector is a cross-platform application designed to detect face
 
 ## Screenshots
 
-### Web Version
-
-1. **Main Upload Page**
-   <img width="894" height="337" alt="1" src="https://github.com/user-attachments/assets/41910e1e-eeb2-4c92-9a48-c2d9e098bdb2" />
-
-2. **Detection Results (Summary and Face Analysis)**
-   
-<img width="778" height="896" alt="2" src="https://github.com/user-attachments/assets/19a90db7-b851-4fb7-8cc6-58cb28e52395" />
-
-3. **Detection Results (Detailed View)**
-   
-<img width="714" height="746" alt="3" src="https://github.com/user-attachments/assets/34e2a119-de76-4e1a-aa3f-509f4a5da3bd" />
-
 ### Mobile Version
 
-1. **Face Analysis Loading Screen**
-   
-<img width="350" height="608" alt="af" src="https://github.com/user-attachments/assets/17c5a37f-05ae-493e-98bd-8060c83e4fb4" />
+1. 
+<img width="922" height="2049" alt="d185733b-a058-4045-a48a-b15bedf0dfc0" src="https://github.com/user-attachments/assets/24ee5052-ef0e-4d2c-8a95-584076a3edc3" />
+2.
+<img width="922" height="2049" alt="79f00c48-dad0-4a67-be3b-7205970dbd88" src="https://github.com/user-attachments/assets/b23c33c5-86ca-4f66-903c-1ee396138340" />
 
-2. **Camera Interface (No Face)**
- 
-<img width="478" height="915" alt="camera" src="https://github.com/user-attachments/assets/7bddcb86-edf9-4fb8-91ee-3105b409fb14" />
-
-3. **Camera Interface (With Object)**
- 
-<img width="350" height="608" alt="m3" src="https://github.com/user-attachments/assets/6a0af3cb-1862-491f-8ecd-0d6c58ae157b" />
-
-<img width="350" height="608" alt="45" src="https://github.com/user-attachments/assets/934b1859-c2d4-408b-bf09-26128c7fb49c" />
-
----
 
 
 ## Project Structure
