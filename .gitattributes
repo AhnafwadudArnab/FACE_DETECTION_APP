@@ -1,2 +1,4 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+Ai[[:space:]]model/Faces[[:space:]]Detectors/webapp/venv/Lib/site-packages/tensorflow/python/_pywrap_tensorflow_common.dll filter=lfs diff=lfs merge=lfs -text
+Ai[[:space:]]model/Faces[[:space:]]Detectors/webapp/venv/Lib/site-packages/torch/lib/torch_cpu.dll filter=lfs diff=lfs merge=lfs -text
