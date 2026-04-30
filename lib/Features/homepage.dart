@@ -7,8 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 
-enum ServerMode { auto, emulator, lan }
-
 class HomePage extends StatefulWidget {
   final String? capturedImagePath;
   const HomePage({super.key, this.capturedImagePath});
@@ -20,24 +18,14 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String? _currentImagePath;
   bool _serverReachable = false;
-  String _serverMessage = 'Checking server...';
   bool _isAnalyzing = false;
   String? _analysisError;
   Map<String, dynamic>? _analysisResult;
-  // Enhancement UI state
-  String _selectedFilter = 'clahe';
-  double _filterStrength = 1.2; // used for gamma
-  // debug info
+
   DateTime? _lastAnalyzedAt;
   int? _lastFacesCount;
   final ImagePicker _picker = ImagePicker();
-  // Server URLs — choose based on ServerMode selection.
-  // Emulator (Google AVD): 10.0.2.2 reaches the host machine.
-  // Physical device: use the host's LAN IP.
-  static const String _emulatorServer = 'http://10.15.41.155:5000';
-  static const String _homeServer = 'http://192.168.68.100:5000';
-  // server selection mode
-  ServerMode _serverMode = ServerMode.auto;
+  static const String _serverUrl = 'https://face-detection-app-9ea5.onrender.com';
 
   @override
   void initState() {
@@ -46,51 +34,16 @@ class _HomePageState extends State<HomePage> {
     _checkServer();
   }
 
-  List<String> _getServers() {
-    return _serverMode == ServerMode.auto
-        ? [_emulatorServer, _homeServer]
-        : _serverMode == ServerMode.emulator
-            ? [_emulatorServer]
-            : [_homeServer];
-  }
+  List<String> _getServers() => [_serverUrl];
 
   Future<void> _checkServer() async {
-    final servers = _getServers();
-
     try {
-      final r = await http.get(Uri.parse('${servers[0]}/'), headers: {'Accept': 'text/html'}).timeout(const Duration(seconds: 3));
-      final wasReachable = _serverReachable;
-      final nowReachable = r.statusCode == 200;
-      setState(() {
-        _serverReachable = nowReachable;
-        _serverMessage = _serverReachable ? 'Model server reachable' : 'Server responded ${r.statusCode}';
-      });
-      // Show a SnackBar notification on change
-      if (nowReachable != wasReachable) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(nowReachable ? 'Model server reachable' : 'Server unreachable'),
-            backgroundColor: nowReachable ? Colors.green : Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      final wasReachable = _serverReachable;
-      final errText = e.toString();
-      setState(() {
-        _serverReachable = false;
-        _serverMessage = 'Server unreachable: ${errText.length > 60 ? '${errText.substring(0, 60)}...' : errText}';
-      });
-      if (wasReachable) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Server unreachable: ${errText.length > 120 ? '${errText.substring(0, 120)}...' : errText}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
+      final r = await http
+          .get(Uri.parse('$_serverUrl/'), headers: {'Accept': 'text/html'})
+          .timeout(const Duration(seconds: 5));
+      setState(() => _serverReachable = r.statusCode == 200);
+    } catch (_) {
+      setState(() => _serverReachable = false);
     }
   }
 
@@ -164,7 +117,6 @@ class _HomePageState extends State<HomePage> {
             _analysisResult = body;
             _isAnalyzing = false;
             _serverReachable = true;
-            _serverMessage = 'Model server reachable (${base.replaceFirst('http://', '')})';
             _lastAnalyzedAt = DateTime.now();
             _lastFacesCount = (body['faces'] is List) ? (body['faces'] as List).length : null;
           });
@@ -182,56 +134,7 @@ class _HomePageState extends State<HomePage> {
       _isAnalyzing = false;
       _analysisError = 'Failed to analyze image: ${lastError ?? 'unknown'}';
       _serverReachable = false;
-      _serverMessage = 'Server unreachable';
     });
-  }
-
-  // POST image file to /api/enhance and return the response body
-  Future<Map<String, dynamic>?> _enhanceImage(String imagePath) async {
-    final servers = _getServers();
-
-    for (final base in servers) {
-      try {
-        final uri = Uri.parse('$base/api/enhance');
-        final request = http.MultipartRequest('POST', uri);
-        request.fields['filter'] = _selectedFilter;
-        if (_selectedFilter == 'gamma') request.fields['strength'] = _filterStrength.toString();
-        request.files.add(await http.MultipartFile.fromPath('image', imagePath));
-        final streamed = await request.send().timeout(const Duration(seconds: 20));
-        final res = await http.Response.fromStream(streamed);
-        if (res.statusCode == 200) {
-          return json.decode(res.body) as Map<String, dynamic>;
-        }
-      } catch (e) {
-        // try next server
-      }
-    }
-    return null;
-  }
-
-  // Call /api/detect_file with filename in results and update analysis UI
-  Future<bool> _detectFile(String filename) async {
-    final servers = _getServers();
-
-    for (final base in servers) {
-      try {
-        final uri = Uri.parse('$base/api/detect_file');
-        final r = await http.post(uri, headers: {'Content-Type': 'application/json'}, body: json.encode({'filename': filename})).timeout(const Duration(seconds: 10));
-        if (r.statusCode == 200) {
-          final Map<String, dynamic> body = json.decode(r.body);
-          setState(() {
-            _analysisResult = body;
-            _isAnalyzing = false;
-            _lastAnalyzedAt = DateTime.now();
-            _lastFacesCount = (body['faces'] is List) ? (body['faces'] as List).length : null;
-          });
-          return true;
-        }
-      } catch (e) {
-        // try next
-      }
-    }
-    return false;
   }
 
   /// A single info row: icon + bold label + value underneath.
@@ -544,54 +447,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
 
-              // ── Server mode selector ──────────────────────────────────
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: _surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
-                ),
-                child: Row(
-                  children: [
-                    _ModeChip(
-                      label: 'Auto',
-                      selected: _serverMode == ServerMode.auto,
-                      onTap: () {
-                        setState(() => _serverMode = ServerMode.auto);
-                        _checkServer();
-                      },
-                    ),
-                    _ModeChip(
-                      label: 'Emulator',
-                      selected: _serverMode == ServerMode.emulator,
-                      onTap: () {
-                        setState(() => _serverMode = ServerMode.emulator);
-                        _checkServer();
-                      },
-                    ),
-                    _ModeChip(
-                      label: 'LAN',
-                      selected: _serverMode == ServerMode.lan,
-                      onTap: () {
-                        setState(() => _serverMode = ServerMode.lan);
-                        _checkServer();
-                      },
-                    ),
-                    const Spacer(),
-                    TextButton.icon(
-                      onPressed: _checkServer,
-                      icon: const Icon(Icons.refresh_rounded, size: 14, color: _textSec),
-                      label: const Text('Retry',
-                          style: TextStyle(color: _textSec, fontSize: 12)),
-                      style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8)),
-                    ),
-                  ],
-                ),
-              ),
-
               // ── Last analyzed info ────────────────────────────────────
               if (_lastAnalyzedAt != null)
                 Padding(
@@ -783,7 +638,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                             )
                           else ...[
-                            // Annotated image
+                            // Annotated image — smaller, clear face view
                             if (_analysisResult != null &&
                                 _analysisResult!['annotated_url'] is String) ...[
                               ClipRRect(
@@ -791,220 +646,16 @@ class _HomePageState extends State<HomePage> {
                                 child: Image.network(
                                   _analysisResult!['annotated_url'],
                                   width: double.infinity,
-                                  height: 200,
-                                  fit: BoxFit.cover,
+                                  height: 160,
+                                  fit: BoxFit.contain,
                                   errorBuilder: (_, __, ___) =>
                                       const Icon(Icons.broken_image, color: _textSec),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-
-                              // Enhance controls
-                              Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: _card,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                      color: Colors.white.withOpacity(0.06)),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Enhance Image',
-                                        style: TextStyle(
-                                            color: _textPri, fontSize: 13,
-                                            fontWeight: FontWeight.w600)),
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 12),
-                                            decoration: BoxDecoration(
-                                              color: _surface,
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              border: Border.all(
-                                                  color: Colors.white
-                                                      .withOpacity(0.1)),
-                                            ),
-                                            child: DropdownButtonHideUnderline(
-                                              child: DropdownButton<String>(
-                                                value: _selectedFilter,
-                                                dropdownColor: _card,
-                                                style: const TextStyle(
-                                                    color: _textPri, fontSize: 13),
-                                                items: <String>[
-                                                  'clahe', 'sharpen', 'denoise',
-                                                  'contrast', 'unsharp', 'gamma'
-                                                ]
-                                                    .map((f) => DropdownMenuItem(
-                                                        value: f, child: Text(f)))
-                                                    .toList(),
-                                                onChanged: (v) {
-                                                  if (v != null) {
-                                                    setState(() => _selectedFilter = v);
-                                                  }
-                                                },
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        _ActionButton(
-                                          label: 'Enhance',
-                                          icon: Icons.auto_fix_high_rounded,
-                                          onTap: () async {
-                                            final result = _analysisResult;
-                                            if (result == null ||
-                                                result['annotated_url'] is! String) {
-                                              return;
-                                            }
-                                            final annotatedUrl =
-                                                result['annotated_url'] as String;
-                                            final uri = Uri.parse(annotatedUrl);
-                                            final fname =
-                                                uri.pathSegments.isNotEmpty
-                                                    ? uri.pathSegments.last
-                                                    : null;
-                                            if (fname == null) return;
-                                            setState(() => _isAnalyzing = true);
-                                            try {
-                                              final resp = await http
-                                                  .get(Uri.parse(annotatedUrl))
-                                                  .timeout(
-                                                      const Duration(seconds: 10));
-                                              if (resp.statusCode == 200) {
-                                                final tmpFile = File(
-                                                    '${Directory.systemTemp.path}/$fname');
-                                                await tmpFile
-                                                    .writeAsBytes(resp.bodyBytes);
-                                                final enhanced =
-                                                    await _enhanceImage(tmpFile.path);
-                                                if (enhanced != null &&
-                                                    enhanced['enhanced_url'] != null) {
-                                                  var url =
-                                                      enhanced['enhanced_url'] as String;
-                                                  if (url.contains('127.0.0.1') ||
-                                                      url.contains('localhost')) {
-                                                    url = url
-                                                        .replaceAll(
-                                                            '127.0.0.1', '10.0.2.2')
-                                                        .replaceAll(
-                                                            'localhost', '10.0.2.2');
-                                                  }
-                                                  setState(() =>
-                                                      _analysisResult![
-                                                          'annotated_url'] = url);
-                                                  if (mounted) {
-                                                    ScaffoldMessenger.of(context)
-                                                        .showSnackBar(const SnackBar(
-                                                            content:
-                                                                Text('Enhanced!')));
-                                                  }
-                                                } else {
-                                                  if (mounted) {
-                                                    ScaffoldMessenger.of(context)
-                                                        .showSnackBar(const SnackBar(
-                                                            content: Text(
-                                                                'Enhance failed')));
-                                                  }
-                                                }
-                                              }
-                                            } catch (e) {
-                                              if (mounted) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(SnackBar(
-                                                        content:
-                                                            Text('Error: $e')));
-                                              }
-                                            } finally {
-                                              setState(() => _isAnalyzing = false);
-                                            }
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                    if (_selectedFilter == 'gamma') ...[
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          const Text('Strength',
-                                              style: TextStyle(
-                                                  color: _textSec, fontSize: 12)),
-                                          Expanded(
-                                            child: SliderTheme(
-                                              data: SliderTheme.of(context).copyWith(
-                                                activeTrackColor: _accent,
-                                                thumbColor: _accent,
-                                                inactiveTrackColor:
-                                                    _accent.withOpacity(0.2),
-                                              ),
-                                              child: Slider(
-                                                min: 0.1,
-                                                max: 3.0,
-                                                value: _filterStrength,
-                                                onChanged: (v) => setState(
-                                                    () => _filterStrength = v),
-                                              ),
-                                            ),
-                                          ),
-                                          Text(
-                                            _filterStrength.toStringAsFixed(1),
-                                            style: const TextStyle(
-                                                color: _accentSoft,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                    const SizedBox(height: 8),
-                                    _ActionButton(
-                                      label: 'Analyze Enhanced',
-                                      icon: Icons.manage_search_rounded,
-                                      fullWidth: true,
-                                      loading: _isAnalyzing,
-                                      onTap: _isAnalyzing
-                                          ? null
-                                          : () async {
-                                              final result = _analysisResult;
-                                              if (result == null ||
-                                                  result['annotated_url']
-                                                      is! String) {
-                                                return;
-                                              }
-                                              final url =
-                                                  result['annotated_url'] as String;
-                                              final fname =
-                                                  Uri.parse(url)
-                                                          .pathSegments
-                                                          .isNotEmpty
-                                                      ? Uri.parse(url)
-                                                          .pathSegments
-                                                          .last
-                                                      : null;
-                                              if (fname == null) return;
-                                              setState(
-                                                  () => _isAnalyzing = true);
-                                              final ok =
-                                                  await _detectFile(fname);
-                                              if (!ok && mounted) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(const SnackBar(
-                                                        content: Text(
-                                                            'Analyze enhanced failed')));
-                                              }
-                                            },
-                                    ),
-                                  ],
                                 ),
                               ),
                               const SizedBox(height: 16),
                             ],
 
+                            // Face cards
                             // Face cards
                             if (_analysisResult != null &&
                                 _analysisResult!['faces'] is List)
@@ -1703,3 +1354,4 @@ class _BigActionButton extends StatelessWidget {
     );
   }
 }
+
