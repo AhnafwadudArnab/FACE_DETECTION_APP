@@ -237,20 +237,23 @@ class _HomePageState extends State<HomePage> {
   /// A single info row: icon + bold label + value underneath.
   Widget _buildAnalysisRow(IconData icon, String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.symmetric(vertical: 3.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF39393B)),
-          const SizedBox(width: 10),
+          Icon(icon, size: 15, color: const Color(0xFF6C63FF)),
+          const SizedBox(width: 8),
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: const TextStyle(fontSize: 13, color: Color(0xFF39393B)),
+                style: const TextStyle(
+                    fontSize: 13, color: Color(0xFFCCCCEE)),
                 children: [
                   TextSpan(
                     text: '$label: ',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF9D97FF)),
                   ),
                   TextSpan(text: value),
                 ],
@@ -266,40 +269,39 @@ class _HomePageState extends State<HomePage> {
   Widget _buildConfidenceBar(double confidence) {
     final pct = (confidence * 100).toStringAsFixed(1);
     final color = confidence >= 0.8
-        ? Colors.green[700]!
+        ? const Color(0xFF2ECC71)
         : confidence >= 0.5
-            ? Colors.orange[700]!
-            : Colors.red[700]!;
+            ? const Color(0xFFF39C12)
+            : const Color(0xFFE74C3C);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Icon(Icons.bar_chart, size: 18, color: Color(0xFF39393B)),
-            const SizedBox(width: 10),
-            const Text(
-              'Confidence: ',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF39393B)),
-            ),
+            const Icon(Icons.bar_chart, size: 15,
+                color: Color(0xFF6C63FF)),
+            const SizedBox(width: 8),
+            const Text('Confidence: ',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF9D97FF))),
             Text('$pct%',
                 style: TextStyle(
                     fontSize: 13,
                     color: color,
-                    fontWeight: FontWeight.w600)),
+                    fontWeight: FontWeight.w700)),
           ],
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Padding(
-          padding: const EdgeInsets.only(left: 28.0),
+          padding: const EdgeInsets.only(left: 23.0),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: confidence.clamp(0.0, 1.0),
               minHeight: 6,
-              backgroundColor: Colors.grey[300],
+              backgroundColor: Colors.white.withOpacity(0.08),
               valueColor: AlwaysStoppedAnimation<Color>(color),
             ),
           ),
@@ -308,182 +310,39 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Per-face detail card showing ALL fields returned by the server.
+  /// Per-face animated detail card.
   Widget _buildFaceCard(Map<String, dynamic> f, int idx) {
-    final fid = f['face_id']?.toString() ?? '${idx + 1}';
-    final age = f['age']?.toString() ?? 'N/A';
-    final gender = f['gender']?.toString() ?? 'N/A';
-    final emotion = f['emotion']?.toString() ?? 'N/A';
-    final race = f['race']?.toString() ?? f['ethnicity']?.toString();
-    final rawConf = f['confidence'] ?? f['score'];
-    final double? confidence =
-        rawConf != null ? (rawConf as num).toDouble() : null;
-    final bbox = f['bbox'] ?? f['bounding_box'];
-
-    // Emotion scores map (e.g. {"happy": 0.9, "sad": 0.05, ...})
-    final emotionScores = f['emotion_scores'] as Map<String, dynamic>?;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Colors.white,
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Header ──────────────────────────────────────────────────
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: const Color(0xFF1e1e2e),
-                  child: Text(
-                    fid,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Face $fid',
-                  style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1e1e2e)),
-                ),
-                const Spacer(),
-                // Edit emotion button
-                TextButton.icon(
-                  icon: const Icon(Icons.edit, size: 14),
-                  label: const Text('Edit', style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4)),
-                  onPressed: () => _showEmotionOverride(f, fid),
-                ),
-              ],
-            ),
-            const Divider(height: 16),
-
-            // ── Core fields ──────────────────────────────────────────────
-            _buildAnalysisRow(Icons.cake_outlined, 'Age', age),
-            _buildAnalysisRow(
-                gender.toLowerCase() == 'male'
-                    ? Icons.male
-                    : gender.toLowerCase() == 'female'
-                        ? Icons.female
-                        : Icons.person,
-                'Gender',
-                gender),
-            _buildAnalysisRow(_emotionIcon(emotion), 'Emotion', emotion),
-            if (race != null)
-              _buildAnalysisRow(Icons.people_outline, 'Race / Ethnicity', race),
-
-            // ── Confidence bar ───────────────────────────────────────────
-            if (confidence != null) ...[
-              const SizedBox(height: 6),
-              _buildConfidenceBar(confidence),
-            ],
-
-            // ── Bounding box ─────────────────────────────────────────────
-            if (bbox != null) ...[
-              const SizedBox(height: 4),
-              _buildAnalysisRow(
-                Icons.crop_free,
-                'Bounding Box',
-                _formatBbox(bbox),
-              ),
-            ],
-
-            // ── Emotion scores breakdown ─────────────────────────────────
-            if (emotionScores != null && emotionScores.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              const Text(
-                'Emotion Scores',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF39393B)),
-              ),
-              const SizedBox(height: 4),
-              ...emotionScores.entries.map((e) {
-                final v = (e.value as num).toDouble();
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2.0),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 72,
-                        child: Text(e.key,
-                            style: const TextStyle(
-                                fontSize: 11, color: Color(0xFF555555))),
-                      ),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: LinearProgressIndicator(
-                            value: v.clamp(0.0, 1.0),
-                            minHeight: 5,
-                            backgroundColor: Colors.grey[200],
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                                _emotionColor(e.key)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text('${(v * 100).toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF555555))),
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ],
-        ),
-      ),
+    return _FaceCard(
+      data: f,
+      idx: idx,
+      emotionIcon: _emotionIcon,
+      emotionColor: _emotionColor,
+      formatBbox: _formatBbox,
+      onEditEmotion: () => _showEmotionOverride(f, f['face_id']?.toString() ?? '${idx + 1}'),
     );
   }
 
   IconData _emotionIcon(String emotion) {
     switch (emotion.toLowerCase()) {
-      case 'happy':
-        return Icons.sentiment_very_satisfied;
-      case 'sad':
-        return Icons.sentiment_very_dissatisfied;
-      case 'angry':
-        return Icons.mood_bad;
-      case 'surprised':
-        return Icons.sentiment_satisfied_alt;
-      case 'fear':
-        return Icons.warning_amber_outlined;
-      case 'disgust':
-        return Icons.sick_outlined;
-      default:
-        return Icons.sentiment_neutral;
+      case 'happy':    return Icons.sentiment_very_satisfied;
+      case 'sad':      return Icons.sentiment_very_dissatisfied;
+      case 'angry':    return Icons.mood_bad;
+      case 'surprised':return Icons.sentiment_satisfied_alt;
+      case 'fear':     return Icons.warning_amber_outlined;
+      case 'disgust':  return Icons.sick_outlined;
+      default:         return Icons.sentiment_neutral;
     }
   }
 
   Color _emotionColor(String emotion) {
     switch (emotion.toLowerCase()) {
-      case 'happy':
-        return Colors.amber;
-      case 'sad':
-        return Colors.blue;
-      case 'angry':
-        return Colors.red;
-      case 'surprised':
-        return Colors.purple;
-      case 'fear':
-        return Colors.orange;
-      case 'disgust':
-        return Colors.green;
-      default:
-        return Colors.grey;
+      case 'happy':    return Colors.amber;
+      case 'sad':      return Colors.blue;
+      case 'angry':    return Colors.red;
+      case 'surprised':return Colors.purple;
+      case 'fear':     return Colors.orange;
+      case 'disgust':  return Colors.green;
+      default:         return Colors.grey;
     }
   }
 
@@ -502,26 +361,27 @@ class _HomePageState extends State<HomePage> {
     return bbox.toString();
   }
 
-  Future<void> _showEmotionOverride(
-      Map<String, dynamic> f, String fid) async {
+  Future<void> _showEmotionOverride(Map<String, dynamic> f, String fid) async {
     final femo = f['emotion']?.toString() ?? 'neutral';
-    final emotions = [
-      'neutral', 'happy', 'sad', 'angry', 'surprised', 'fear', 'disgust'
-    ];
+    final emotions = ['neutral','happy','sad','angry','surprised','fear','disgust'];
     final picked = await showDialog<String?>(
       context: context,
       builder: (_) {
         String sel = femo;
         return AlertDialog(
-          title: const Text('Override emotion'),
+          backgroundColor: const Color(0xFF1A1A2E),
+          title: const Text('Override Emotion',
+              style: TextStyle(color: Color(0xFFEAEAFF))),
           content: StatefulBuilder(builder: (c, setS) {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: emotions.map((e) {
                 return RadioListTile<String>(
-                  title: Text(e),
+                  title: Text(e,
+                      style: const TextStyle(color: Color(0xFFCCCCEE))),
                   value: e,
                   groupValue: sel,
+                  activeColor: const Color(0xFF6C63FF),
                   onChanged: (v) => setS(() => sel = v ?? sel),
                 );
               }).toList(),
@@ -530,17 +390,18 @@ class _HomePageState extends State<HomePage> {
           actions: [
             TextButton(
                 onPressed: () => Navigator.of(context).pop(null),
-                child: const Text('Cancel')),
+                child: const Text('Cancel',
+                    style: TextStyle(color: Color(0xFF8888AA)))),
             TextButton(
                 onPressed: () => Navigator.of(context).pop(sel),
-                child: const Text('Save')),
+                child: const Text('Save',
+                    style: TextStyle(color: Color(0xFF6C63FF)))),
           ],
         );
       },
     );
 
     if (picked == null || picked == femo) return;
-
     final servers = _getServers();
     bool done = false;
     for (final base in servers) {
@@ -558,8 +419,7 @@ class _HomePageState extends State<HomePage> {
             .timeout(const Duration(seconds: 5));
         if (resp.statusCode == 200) {
           setState(() {
-            if (_analysisResult != null &&
-                _analysisResult!['faces'] is List) {
+            if (_analysisResult != null && _analysisResult!['faces'] is List) {
               for (var item in _analysisResult!['faces'] as List) {
                 if ((item['face_id']?.toString() ?? '') == fid) {
                   item['emotion'] = picked;
@@ -568,476 +428,1276 @@ class _HomePageState extends State<HomePage> {
             }
           });
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Override saved')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Override saved')));
           done = true;
           break;
         }
       } catch (_) {}
     }
     if (!done && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to save override')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Failed to save override')));
     }
   }
+
+  // ── Design tokens ──────────────────────────────────────────────────────
+  static const _bg        = Color(0xFF0F0F1A);
+  static const _surface   = Color(0xFF1A1A2E);
+  static const _card      = Color(0xFF16213E);
+  static const _accent    = Color(0xFF6C63FF);
+  static const _accentSoft= Color(0xFF9D97FF);
+  static const _textPri   = Color(0xFFEAEAFF);
+  static const _textSec   = Color(0xFF8888AA);
 
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
-    final screenWidth = mq.size.width;
-    final screenHeight = mq.size.height;
-
-    // responsive sizes
-    final imageWidth = screenWidth * 0.9;
-    final imageHeight = screenHeight * 0.28;
-
-  // per-face details will be shown in the list below
-    final String objectText = _analysisResult?['object']?.toString() ?? 'Human Face';
-
-    // Per-face list will present the details; objectText already set above
+    final imageHeight = mq.size.height * 0.30;
+    final String objectText =
+        _analysisResult?['object']?.toString() ?? 'Human Face';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1e1e2e),
+      backgroundColor: _bg,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, mq.viewPadding.bottom + 24.0),
+          padding: EdgeInsets.fromLTRB(16, 12, 16, mq.viewPadding.bottom + 32),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 20),
-              // Server status banner
+              // ── App header ────────────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _serverReachable ? Colors.green[700] : Colors.red[700],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Make the left side flexible so long server messages don't overflow
-                      Expanded(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [_accent, Color(0xFFFF6584)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.face_retouching_natural,
+                          color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('MindXScope',
+                            style: TextStyle(
+                                color: _textPri, fontSize: 18,
+                                fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                        Text('AI Face Analysis',
+                            style: TextStyle(
+                                color: _textSec, fontSize: 11, letterSpacing: 0.3)),
+                      ],
+                    ),
+                    const Spacer(),
+                    // Server status pill
+                    GestureDetector(
+                      onTap: _checkServer,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _serverReachable
+                              ? const Color(0xFF1A3A2A)
+                              : const Color(0xFF3A1A1A),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _serverReachable
+                                ? const Color(0xFF2ECC71)
+                                : const Color(0xFFE74C3C),
+                          ),
+                        ),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(_serverReachable ? Icons.check_circle : Icons.error, color: Colors.white),
-                            const SizedBox(width: 8),
-                            // Allow the message to ellipsize if it's too long for the available space
-                            Expanded(
-                              child: Text(
-                                _serverMessage,
-                                style: const TextStyle(color: Colors.white),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
+                            Container(
+                              width: 7, height: 7,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _serverReachable
+                                    ? const Color(0xFF2ECC71)
+                                    : const Color(0xFFE74C3C),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _serverReachable ? 'Online' : 'Offline',
+                              style: TextStyle(
+                                color: _serverReachable
+                                    ? const Color(0xFF2ECC71)
+                                    : const Color(0xFFE74C3C),
+                                fontSize: 11, fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          // Server mode selector
-                          ToggleButtons(
-                            isSelected: [
-                              _serverMode == ServerMode.auto,
-                              _serverMode == ServerMode.emulator,
-                              _serverMode == ServerMode.lan
-                            ],
-                            onPressed: (i) {
-                              setState(() {
-                                _serverMode = i == 0 ? ServerMode.auto : i == 1 ? ServerMode.emulator : ServerMode.lan;
-                              });
-                              _checkServer();
-                            },
-                            color: Colors.white,
-                            selectedColor: Colors.black,
-                            fillColor: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                            children: const [
-                              Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('Auto')),
-                              Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('Emulator')),
-                              Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('LAN')),
-                            ],
-                          ),
-                          const SizedBox(width: 8),
-                          TextButton(
-                            onPressed: _checkServer,
-                            child: const Text('Retry', style: TextStyle(color: Colors.white)),
-                          ),
-                        ],
-                      )
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Debug: last analysis info
-              if (_lastAnalyzedAt != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Last analyzed: ${_lastAnalyzedAt!.toLocal().toIso8601String()} • Faces: ${_lastFacesCount ?? 0}',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                  ),
-                ),
-              // Profile Avatar or Captured Image
-              Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(40),
-                  child: Container(
-                    width: imageWidth.clamp(260.0, 400.0).toDouble(),
-                    height: imageHeight.clamp(180.0, 320.0).toDouble(),
-                    color: const Color(0xFFBDBDBD),
-                    child: _currentImagePath != null
-                        ? Image.file(
-                            File(_currentImagePath!),
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            filterQuality: FilterQuality.high,
-                            gaplessPlayback: true,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Center(
-                                child: Icon(
-                                  Icons.broken_image,
-                                  size: 100,
-                                  color: Color(0xFF39393B),
-                                ),
-                              );
-                            },
-                          )
-                        : const Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.camera_alt,
-                                  size: 60,
-                                  color: Color(0xFF39393B),
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'No Image',
-                                  style: TextStyle(
-                                    color: Color(0xFF39393B),
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                  ),
-                ),
-              ),
-              // Face Analysis Details Card (scrollable to avoid overflow)
-              Center(
-                child: Container(
-                  width: screenWidth * 0.9,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE0E0E0),
-                    borderRadius: BorderRadius.circular(40),
-                  ),
-                  child: _currentImagePath != null
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-                          child: SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Center(
-                                  child: Text(
-                                    'Face Analysis',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF39393B),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                if (_isAnalyzing)
-                                  const Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        CircularProgressIndicator(),
-                                        SizedBox(height: 12),
-                                        Text('Analyzing...', style: TextStyle(color: Color(0xFF39393B))),
-                                      ],
-                                    ),
-                                  )
-                                else if (_analysisError != null)
-                                  Center(
-                                    child: Text(
-                                      _analysisError!,
-                                      style: const TextStyle(color: Colors.red),
-                                    ),
-                                  )
-                                else ...[
-                                  Text('Object: $objectText', style: const TextStyle(fontSize: 12, color: Color(0xFF666666))),
-                                  const SizedBox(height: 8),
-                                  if (_analysisResult != null && _analysisResult!['annotated_url'] is String)
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                                      children: [
-                                        Center(
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                            child: Image.network(
-                                              _analysisResult!['annotated_url'],
-                                              width: imageWidth.clamp(260.0, 400.0).toDouble(),
-                                              height: imageHeight.clamp(120.0, 220.0).toDouble(),
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        // Enhancement controls
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6.0),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                                            children: [
-                                              Text('Enhance image', style: Theme.of(context).textTheme.titleMedium),
-                                              const SizedBox(height: 6),
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: DropdownButton<String>(
-                                                      value: _selectedFilter,
-                                                      items: <String>['clahe', 'sharpen', 'denoise', 'contrast', 'unsharp', 'gamma']
-                                                          .map((f) => DropdownMenuItem(value: f, child: Text(f)))
-                                                          .toList(),
-                                                      onChanged: (v) {
-                                                        if (v != null) setState(() => _selectedFilter = v);
-                                                      },
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  ElevatedButton(
-                                                    onPressed: () async {
-                                                      final result = _analysisResult;
-                                                      if (result == null || result['annotated_url'] is! String) return;
-                                                      final annotatedUrl = result['annotated_url'] as String;
-                                                      final uri = Uri.parse(annotatedUrl);
-                                                      final fname = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : null;
-                                                      if (fname == null) return;
-                                                      setState(() => _isAnalyzing = true);
-                                                      try {
-                                                        final resp = await http.get(Uri.parse(annotatedUrl)).timeout(const Duration(seconds: 10));
-                                                        if (resp.statusCode == 200) {
-                                                          final bytes = resp.bodyBytes;
-                                                            final tmpDir = Directory.systemTemp;
-                                                            final tmpFile = File('${tmpDir.path}/$fname');
-                                                          await tmpFile.writeAsBytes(bytes);
-                                                          final enhanced = await _enhanceImage(tmpFile.path);
-                                                          if (enhanced != null && enhanced['enhanced_url'] != null) {
-                                                            var url = enhanced['enhanced_url'] as String;
-                                                            if (url.contains('127.0.0.1') || url.contains('localhost')) {
-                                                              url = url.replaceAll('127.0.0.1', '10.0.2.2').replaceAll('localhost', '10.0.2.2');
-                                                            }
-                                                            setState(() {
-                                                              _analysisResult!['annotated_url'] = url;
-                                                            });
-                                                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enhanced image ready')));
-                                                          } else {
-                                                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enhance failed')));
-                                                          }
-                                                        }
-                                                      } catch (e) {
-                                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Enhance error: $e')));
-                                                      } finally {
-                                                        setState(() => _isAnalyzing = false);
-                                                      }
-                                                    },
-                                                    child: const Text('Enhance'),
-                                                  ),
-                                                ],
-                                              ),
-                                              if (_selectedFilter == 'gamma')
-                                                Column(
-                                                  children: [
-                                                    const SizedBox(height: 8),
-                                                    Text('Strength: ${_filterStrength.toStringAsFixed(2)}'),
-                                                    Slider(
-                                                      min: 0.1,
-                                                      max: 3.0,
-                                                      value: _filterStrength,
-                                                      onChanged: (v) => setState(() => _filterStrength = v),
-                                                    ),
-                                                  ],
-                                                ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  ElevatedButton(
-                                                    onPressed: _isAnalyzing
-                                                        ? null
-                                                        : () async {
-                                                            final result = _analysisResult;
-                                                            if (result == null || result['annotated_url'] is! String) return;
-                                                            final url = result['annotated_url'] as String;
-                                                            final uri = Uri.parse(url);
-                                                            final fname = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : null;
-                                                            if (fname == null) return;
-                                                            setState(() => _isAnalyzing = true);
-                                                            final ok = await _detectFile(fname);
-                                                            if (!ok) {
-                                                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Analyze enhanced failed')));
-                                                            }
-                                                          },
-                                                    child: const Text('Analyze Enhanced'),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  if (_isAnalyzing) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                      ],
-                                    ),
-                                  if (_analysisResult != null && _analysisResult!['faces'] is List)
-                                    Column(
-                                      children: [
-                                        for (int idx = 0;
-                                            idx < (_analysisResult!['faces'] as List).length;
-                                            idx++)
-                                          _buildFaceCard(
-                                            (_analysisResult!['faces'] as List)[idx]
-                                                as Map<String, dynamic>,
-                                            idx,
-                                          ),
-                                      ],
-                                    ),
-                                  const SizedBox(height: 8),
-                                  const Center(
-                                    child: Text(
-                                      'Analysis Complete ✓',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.green,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          if (_currentImagePath != null) _analyzeImage(_currentImagePath!);
-                                        },
-                                        child: const Text('Retry Analysis'),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          final text = json.encode(_analysisResult ?? {});
-                                          Clipboard.setData(ClipboardData(text: text));
-                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Results copied to clipboard')));
-                                        },
-                                        child: const Text('Copy Results'),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        )
-                      : const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.analytics_outlined,
-                                size: 60,
-                                color: Color(0xFF39393B),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Take a photo to analyze',
-                                style: TextStyle(
-                                  color: Color(0xFF39393B),
-                                  fontSize: 16,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Object • Face • Age • Emotions',
-                                style: TextStyle(
-                                  color: Color(0xFF666666),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Camera Button
-              Padding(
-                padding: const EdgeInsets.only(bottom: 30.0, top: 8.0),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.photo_library,
-                            size: 36,
-                            color: Colors.white,
-                          ),
-                          onPressed: _pickImageFromGallery,
-                        ),
-                        const SizedBox(width: 12),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.camera_alt_rounded,
-                            size: 50,
-                            color: Colors.white,
-                          ),
-                          onPressed: _navigateToCamera,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Hint-style button at bottom
-                    TextButton(
-                      onPressed: _navigateToCamera,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        backgroundColor: Colors.transparent,
-                      ),
-                      child: const Text(
-                        'Tap to open camera',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontStyle: FontStyle.italic,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              // Add bottom spacer to account for system navigation bars
-              SizedBox(height: mq.viewPadding.bottom + 24.0),
+
+              // ── Server mode selector ──────────────────────────────────
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: _surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                ),
+                child: Row(
+                  children: [
+                    _ModeChip(
+                      label: 'Auto',
+                      selected: _serverMode == ServerMode.auto,
+                      onTap: () {
+                        setState(() => _serverMode = ServerMode.auto);
+                        _checkServer();
+                      },
+                    ),
+                    _ModeChip(
+                      label: 'Emulator',
+                      selected: _serverMode == ServerMode.emulator,
+                      onTap: () {
+                        setState(() => _serverMode = ServerMode.emulator);
+                        _checkServer();
+                      },
+                    ),
+                    _ModeChip(
+                      label: 'LAN',
+                      selected: _serverMode == ServerMode.lan,
+                      onTap: () {
+                        setState(() => _serverMode = ServerMode.lan);
+                        _checkServer();
+                      },
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: _checkServer,
+                      icon: const Icon(Icons.refresh_rounded, size: 14, color: _textSec),
+                      label: const Text('Retry',
+                          style: TextStyle(color: _textSec, fontSize: 12)),
+                      style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8)),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Last analyzed info ────────────────────────────────────
+              if (_lastAnalyzedAt != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Text(
+                    '${_lastAnalyzedAt!.toLocal().hour.toString().padLeft(2, '0')}:'
+                    '${_lastAnalyzedAt!.toLocal().minute.toString().padLeft(2, '0')} • '
+                    '${_lastFacesCount ?? 0} face${(_lastFacesCount ?? 0) == 1 ? '' : 's'} detected',
+                    style: const TextStyle(color: _textSec, fontSize: 11),
+                  ),
+                ),
+
+              // ── Image preview card ────────────────────────────────────
+              Container(
+                width: double.infinity,
+                height: imageHeight.clamp(200.0, 320.0),
+                decoration: BoxDecoration(
+                  color: _surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white.withOpacity(0.07)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: _currentImagePath != null
+                    ? Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.file(
+                            File(_currentImagePath!),
+                            fit: BoxFit.cover,
+                            filterQuality: FilterQuality.high,
+                            gaplessPlayback: true,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(Icons.broken_image, size: 60, color: _textSec),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 0, left: 0, right: 0,
+                            child: Container(
+                              height: 60,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    Colors.black.withOpacity(0.6),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (_isAnalyzing)
+                            Container(
+                              color: Colors.black.withOpacity(0.5),
+                              child: const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(color: _accent),
+                                    SizedBox(height: 12),
+                                    Text('Analyzing...',
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 72, height: 72,
+                            decoration: BoxDecoration(
+                              color: _accent.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: _accent.withOpacity(0.3), width: 2),
+                            ),
+                            child: const Icon(Icons.add_photo_alternate_outlined,
+                                color: _accent, size: 32),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text('No image selected',
+                              style: TextStyle(
+                                  color: _textPri, fontSize: 15,
+                                  fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          const Text('Tap camera or gallery below',
+                              style: TextStyle(color: _textSec, fontSize: 12)),
+                        ],
+                      ),
+              ),
+              const SizedBox(height: 16),
+
+              // ── Analysis results card ─────────────────────────────────
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: _surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white.withOpacity(0.07)),
+                ),
+                padding: const EdgeInsets.all(20),
+                child: _currentImagePath == null
+                    ? Column(
+                        children: [
+                          const SizedBox(height: 8),
+                          Icon(Icons.analytics_outlined,
+                              size: 48, color: _accent.withOpacity(0.4)),
+                          const SizedBox(height: 12),
+                          const Text('Take a photo to analyze',
+                              style: TextStyle(
+                                  color: _textPri, fontSize: 15,
+                                  fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          const Text('Face • Age • Gender • Emotion',
+                              style: TextStyle(color: _textSec, fontSize: 12)),
+                          const SizedBox(height: 8),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title row
+                          Row(
+                            children: [
+                              Container(
+                                width: 4, height: 18,
+                                decoration: BoxDecoration(
+                                  color: _accent,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text('Analysis Results',
+                                  style: TextStyle(
+                                      color: _textPri, fontSize: 16,
+                                      fontWeight: FontWeight.w700)),
+                              const Spacer(),
+                              if (_analysisResult != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1A3A2A),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(objectText,
+                                      style: const TextStyle(
+                                          color: Color(0xFF2ECC71),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600)),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+
+                          if (_isAnalyzing)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: CircularProgressIndicator(color: _accent),
+                              ),
+                            )
+                          else if (_analysisError != null)
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF3A1A1A),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: const Color(0xFFE74C3C).withOpacity(0.4)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline,
+                                      color: Color(0xFFE74C3C), size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(_analysisError!,
+                                        style: const TextStyle(
+                                            color: Color(0xFFE74C3C), fontSize: 12)),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else ...[
+                            // Annotated image
+                            if (_analysisResult != null &&
+                                _analysisResult!['annotated_url'] is String) ...[
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.network(
+                                  _analysisResult!['annotated_url'],
+                                  width: double.infinity,
+                                  height: 200,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      const Icon(Icons.broken_image, color: _textSec),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Enhance controls
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: _card,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                      color: Colors.white.withOpacity(0.06)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text('Enhance Image',
+                                        style: TextStyle(
+                                            color: _textPri, fontSize: 13,
+                                            fontWeight: FontWeight.w600)),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12),
+                                            decoration: BoxDecoration(
+                                              color: _surface,
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              border: Border.all(
+                                                  color: Colors.white
+                                                      .withOpacity(0.1)),
+                                            ),
+                                            child: DropdownButtonHideUnderline(
+                                              child: DropdownButton<String>(
+                                                value: _selectedFilter,
+                                                dropdownColor: _card,
+                                                style: const TextStyle(
+                                                    color: _textPri, fontSize: 13),
+                                                items: <String>[
+                                                  'clahe', 'sharpen', 'denoise',
+                                                  'contrast', 'unsharp', 'gamma'
+                                                ]
+                                                    .map((f) => DropdownMenuItem(
+                                                        value: f, child: Text(f)))
+                                                    .toList(),
+                                                onChanged: (v) {
+                                                  if (v != null) {
+                                                    setState(() => _selectedFilter = v);
+                                                  }
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        _ActionButton(
+                                          label: 'Enhance',
+                                          icon: Icons.auto_fix_high_rounded,
+                                          onTap: () async {
+                                            final result = _analysisResult;
+                                            if (result == null ||
+                                                result['annotated_url'] is! String) {
+                                              return;
+                                            }
+                                            final annotatedUrl =
+                                                result['annotated_url'] as String;
+                                            final uri = Uri.parse(annotatedUrl);
+                                            final fname =
+                                                uri.pathSegments.isNotEmpty
+                                                    ? uri.pathSegments.last
+                                                    : null;
+                                            if (fname == null) return;
+                                            setState(() => _isAnalyzing = true);
+                                            try {
+                                              final resp = await http
+                                                  .get(Uri.parse(annotatedUrl))
+                                                  .timeout(
+                                                      const Duration(seconds: 10));
+                                              if (resp.statusCode == 200) {
+                                                final tmpFile = File(
+                                                    '${Directory.systemTemp.path}/$fname');
+                                                await tmpFile
+                                                    .writeAsBytes(resp.bodyBytes);
+                                                final enhanced =
+                                                    await _enhanceImage(tmpFile.path);
+                                                if (enhanced != null &&
+                                                    enhanced['enhanced_url'] != null) {
+                                                  var url =
+                                                      enhanced['enhanced_url'] as String;
+                                                  if (url.contains('127.0.0.1') ||
+                                                      url.contains('localhost')) {
+                                                    url = url
+                                                        .replaceAll(
+                                                            '127.0.0.1', '10.0.2.2')
+                                                        .replaceAll(
+                                                            'localhost', '10.0.2.2');
+                                                  }
+                                                  setState(() =>
+                                                      _analysisResult![
+                                                          'annotated_url'] = url);
+                                                  if (mounted) {
+                                                    ScaffoldMessenger.of(context)
+                                                        .showSnackBar(const SnackBar(
+                                                            content:
+                                                                Text('Enhanced!')));
+                                                  }
+                                                } else {
+                                                  if (mounted) {
+                                                    ScaffoldMessenger.of(context)
+                                                        .showSnackBar(const SnackBar(
+                                                            content: Text(
+                                                                'Enhance failed')));
+                                                  }
+                                                }
+                                              }
+                                            } catch (e) {
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(SnackBar(
+                                                        content:
+                                                            Text('Error: $e')));
+                                              }
+                                            } finally {
+                                              setState(() => _isAnalyzing = false);
+                                            }
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                    if (_selectedFilter == 'gamma') ...[
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          const Text('Strength',
+                                              style: TextStyle(
+                                                  color: _textSec, fontSize: 12)),
+                                          Expanded(
+                                            child: SliderTheme(
+                                              data: SliderTheme.of(context).copyWith(
+                                                activeTrackColor: _accent,
+                                                thumbColor: _accent,
+                                                inactiveTrackColor:
+                                                    _accent.withOpacity(0.2),
+                                              ),
+                                              child: Slider(
+                                                min: 0.1,
+                                                max: 3.0,
+                                                value: _filterStrength,
+                                                onChanged: (v) => setState(
+                                                    () => _filterStrength = v),
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            _filterStrength.toStringAsFixed(1),
+                                            style: const TextStyle(
+                                                color: _accentSoft,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                    const SizedBox(height: 8),
+                                    _ActionButton(
+                                      label: 'Analyze Enhanced',
+                                      icon: Icons.manage_search_rounded,
+                                      fullWidth: true,
+                                      loading: _isAnalyzing,
+                                      onTap: _isAnalyzing
+                                          ? null
+                                          : () async {
+                                              final result = _analysisResult;
+                                              if (result == null ||
+                                                  result['annotated_url']
+                                                      is! String) {
+                                                return;
+                                              }
+                                              final url =
+                                                  result['annotated_url'] as String;
+                                              final fname =
+                                                  Uri.parse(url)
+                                                          .pathSegments
+                                                          .isNotEmpty
+                                                      ? Uri.parse(url)
+                                                          .pathSegments
+                                                          .last
+                                                      : null;
+                                              if (fname == null) return;
+                                              setState(
+                                                  () => _isAnalyzing = true);
+                                              final ok =
+                                                  await _detectFile(fname);
+                                              if (!ok && mounted) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(const SnackBar(
+                                                        content: Text(
+                                                            'Analyze enhanced failed')));
+                                              }
+                                            },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+
+                            // Face cards
+                            if (_analysisResult != null &&
+                                _analysisResult!['faces'] is List)
+                              ...List.generate(
+                                (_analysisResult!['faces'] as List).length,
+                                (idx) => _buildFaceCard(
+                                  (_analysisResult!['faces'] as List)[idx]
+                                      as Map<String, dynamic>,
+                                  idx,
+                                ),
+                              ),
+
+                            const SizedBox(height: 12),
+                            if (_analysisResult != null)
+                              Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1A3A2A),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.check_circle_outline,
+                                          color: Color(0xFF2ECC71), size: 14),
+                                      SizedBox(width: 6),
+                                      Text('Analysis Complete',
+                                          style: TextStyle(
+                                              color: Color(0xFF2ECC71),
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 16),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _ActionButton(
+                                    label: 'Retry',
+                                    icon: Icons.refresh_rounded,
+                                    onTap: () {
+                                      if (_currentImagePath != null) {
+                                        _analyzeImage(_currentImagePath!);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _ActionButton(
+                                    label: 'Copy JSON',
+                                    icon: Icons.copy_rounded,
+                                    onTap: () {
+                                      Clipboard.setData(ClipboardData(
+                                          text: json.encode(
+                                              _analysisResult ?? {})));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                              content: Text('Copied!')));
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Bottom action buttons ─────────────────────────────────
+              Row(
+                children: [
+                  Expanded(
+                    child: _BigActionButton(
+                      icon: Icons.photo_library_outlined,
+                      label: 'Gallery',
+                      onTap: _pickImageFromGallery,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: _BigActionButton(
+                      icon: Icons.camera_alt_rounded,
+                      label: 'Camera',
+                      primary: true,
+                      onTap: _navigateToCamera,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: mq.viewPadding.bottom + 16),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Animated Face Card ────────────────────────────────────────────────────
+
+class _FaceCard extends StatefulWidget {
+  final Map<String, dynamic> data;
+  final int idx;
+  final IconData Function(String) emotionIcon;
+  final Color Function(String) emotionColor;
+  final String Function(dynamic) formatBbox;
+  final VoidCallback onEditEmotion;
+
+  const _FaceCard({
+    required this.data,
+    required this.idx,
+    required this.emotionIcon,
+    required this.emotionColor,
+    required this.formatBbox,
+    required this.onEditEmotion,
+  });
+
+  @override
+  State<_FaceCard> createState() => _FaceCardState();
+}
+
+class _FaceCardState extends State<_FaceCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _fadeAnim;
+  late Animation<Offset> _slideAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 400 + widget.idx * 120),
+    );
+    _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(
+      begin: const Offset(0, 0.18),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    _ctrl.forward();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final f = widget.data;
+    final fid = f['face_id']?.toString() ?? '${widget.idx + 1}';
+    final age = f['age']?.toString() ?? 'N/A';
+    final gender = f['gender']?.toString() ?? 'N/A';
+    final emotion = f['emotion']?.toString() ?? 'N/A';
+    final race = f['race']?.toString() ?? f['ethnicity']?.toString();
+    final bbox = f['bbox'] ?? f['bounding_box'];
+
+    // Per-attribute confidences from server
+    final ageConf = f['age_confidence'] != null
+        ? (f['age_confidence'] as num).toDouble()
+        : null;
+    final genderConf = f['gender_confidence'] != null
+        ? (f['gender_confidence'] as num).toDouble()
+        : null;
+    final emotionConf = f['emotion_confidence'] != null
+        ? (f['emotion_confidence'] as num).toDouble()
+        : null;
+    // Fallback: generic confidence/score field
+    final rawConf = f['confidence'] ?? f['score'];
+    final double? genericConf =
+        rawConf != null ? (rawConf as num).toDouble() : null;
+
+    final emotionScores =
+        f['emotion_scores'] as Map<String, dynamic>?;
+
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: SlideTransition(
+        position: _slideAnim,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF16213E),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.07)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6C63FF).withOpacity(0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Header ──────────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF6C63FF).withOpacity(0.15),
+                      Colors.transparent,
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(20)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF6C63FF),
+                            Color(0xFF9D97FF)
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Text(fid,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Face $fid',
+                            style: const TextStyle(
+                                color: Color(0xFFEAEAFF),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700)),
+                        Text(
+                          '$gender • $age',
+                          style: const TextStyle(
+                              color: Color(0xFF8888AA),
+                              fontSize: 11),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: widget.onEditEmotion,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6C63FF)
+                              .withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: const Color(0xFF6C63FF)
+                                  .withOpacity(0.3)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.edit_rounded,
+                                size: 12,
+                                color: Color(0xFF9D97FF)),
+                            SizedBox(width: 4),
+                            Text('Edit',
+                                style: TextStyle(
+                                    color: Color(0xFF9D97FF),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Body ────────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Age row with confidence bar
+                    _ConfidenceRow(
+                      icon: Icons.cake_outlined,
+                      label: 'Age',
+                      value: age,
+                      confidence: ageConf,
+                      color: const Color(0xFF6C63FF),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Gender row with confidence bar
+                    _ConfidenceRow(
+                      icon: gender.toLowerCase() == 'male'
+                          ? Icons.male
+                          : gender.toLowerCase() == 'female'
+                              ? Icons.female
+                              : Icons.person,
+                      label: 'Gender',
+                      value: gender,
+                      confidence: genderConf,
+                      color: gender.toLowerCase() == 'male'
+                          ? const Color(0xFF4FC3F7)
+                          : const Color(0xFFF48FB1),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Emotion row with confidence bar
+                    _ConfidenceRow(
+                      icon: widget.emotionIcon(emotion),
+                      label: 'Emotion',
+                      value: emotion,
+                      confidence: emotionConf,
+                      color: widget.emotionColor(emotion),
+                    ),
+
+                    // Race / Ethnicity
+                    if (race != null) ...[
+                      const SizedBox(height: 10),
+                      _InfoRow(
+                        icon: Icons.people_outline,
+                        label: 'Race',
+                        value: race,
+                      ),
+                    ],
+
+                    // Generic confidence (if no per-field ones)
+                    if (genericConf != null &&
+                        ageConf == null &&
+                        genderConf == null) ...[
+                      const SizedBox(height: 10),
+                      _ConfidenceRow(
+                        icon: Icons.bar_chart,
+                        label: 'Confidence',
+                        value:
+                            '${(genericConf * 100).toStringAsFixed(1)}%',
+                        confidence: genericConf,
+                        color: genericConf >= 0.8
+                            ? const Color(0xFF2ECC71)
+                            : genericConf >= 0.5
+                                ? const Color(0xFFF39C12)
+                                : const Color(0xFFE74C3C),
+                      ),
+                    ],
+
+                    // Bounding box
+                    if (bbox != null) ...[
+                      const SizedBox(height: 10),
+                      _InfoRow(
+                        icon: Icons.crop_free,
+                        label: 'BBox',
+                        value: widget.formatBbox(bbox),
+                      ),
+                    ],
+
+                    // Emotion scores breakdown
+                    if (emotionScores != null &&
+                        emotionScores.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      const Text('Emotion Breakdown',
+                          style: TextStyle(
+                              color: Color(0xFF9D97FF),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3)),
+                      const SizedBox(height: 8),
+                      ...emotionScores.entries.map((e) {
+                        final v = (e.value as num).toDouble();
+                        final col = widget.emotionColor(e.key);
+                        return Padding(
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 3),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 68,
+                                child: Text(e.key,
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF8888AA))),
+                              ),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius:
+                                      BorderRadius.circular(4),
+                                  child: TweenAnimationBuilder<double>(
+                                    tween: Tween(begin: 0, end: v.clamp(0.0, 1.0)),
+                                    duration: Duration(
+                                        milliseconds: 600 +
+                                            widget.idx * 80),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (_, val, __) =>
+                                        LinearProgressIndicator(
+                                      value: val,
+                                      minHeight: 6,
+                                      backgroundColor: Colors.white
+                                          .withOpacity(0.07),
+                                      valueColor:
+                                          AlwaysStoppedAnimation<
+                                              Color>(col),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${(v * 100).toStringAsFixed(0)}%',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: col,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Confidence Row ─────────────────────────────────────────────────────────
+
+class _ConfidenceRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final double? confidence;
+  final Color color;
+
+  const _ConfidenceRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    this.confidence,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 8),
+            Text('$label: ',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: color,
+                    fontWeight: FontWeight.w600)),
+            Text(value,
+                style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFFEAEAFF),
+                    fontWeight: FontWeight.w600)),
+            const Spacer(),
+            if (confidence != null)
+              Text(
+                '${(confidence! * 100).toStringAsFixed(0)}%',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: color.withOpacity(0.8),
+                    fontWeight: FontWeight.w600),
+              ),
+          ],
+        ),
+        if (confidence != null) ...[
+          const SizedBox(height: 5),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: confidence!.clamp(0.0, 1.0)),
+              duration: const Duration(milliseconds: 700),
+              curve: Curves.easeOutCubic,
+              builder: (_, val, __) => LinearProgressIndicator(
+                value: val,
+                minHeight: 5,
+                backgroundColor: Colors.white.withOpacity(0.07),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ── Info Row ───────────────────────────────────────────────────────────────
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 15, color: const Color(0xFF6C63FF)),
+        const SizedBox(width: 8),
+        Text('$label: ',
+            style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF9D97FF),
+                fontWeight: FontWeight.w600)),
+        Expanded(
+          child: Text(value,
+              style: const TextStyle(
+                  fontSize: 12, color: Color(0xFFCCCCEE))),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Helper Widgets ─────────────────────────────────────────────────────────
+
+class _ModeChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _ModeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF6C63FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : const Color(0xFF8888AA),
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final bool fullWidth;
+  final bool loading;
+
+  const _ActionButton({
+    required this.label,
+    required this.icon,
+    this.onTap,
+    this.fullWidth = false,
+    this.loading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: loading ? null : onTap,
+      child: Container(
+        width: fullWidth ? double.infinity : null,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF6C63FF).withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: const Color(0xFF6C63FF).withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (loading)
+              const SizedBox(
+                width: 14, height: 14,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Color(0xFF6C63FF)),
+              )
+            else
+              Icon(icon, size: 16, color: const Color(0xFF9D97FF)),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    color: Color(0xFF9D97FF),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BigActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool primary;
+
+  const _BigActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.primary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          gradient: primary
+              ? const LinearGradient(
+                  colors: [Color(0xFF6C63FF), Color(0xFF9D97FF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: primary ? null : const Color(0xFF1A1A2E),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: primary
+                  ? Colors.transparent
+                  : Colors.white.withOpacity(0.1)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon,
+                color: primary ? Colors.white : const Color(0xFF9D97FF),
+                size: primary ? 32 : 28),
+            const SizedBox(height: 6),
+            Text(label,
+                style: TextStyle(
+                    color: primary ? Colors.white : const Color(0xFF9D97FF),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600)),
+          ],
         ),
       ),
     );

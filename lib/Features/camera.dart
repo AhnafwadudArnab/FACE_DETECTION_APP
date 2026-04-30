@@ -11,16 +11,26 @@ class CameraPage extends StatefulWidget {
   State<CameraPage> createState() => _CameraPageState();
 }
 
-class _CameraPageState extends State<CameraPage> {
+class _CameraPageState extends State<CameraPage>
+    with SingleTickerProviderStateMixin {
   CameraController? _controller;
   List<CameraDescription>? cameras;
   bool _isCameraInitialized = false;
   final ImagePicker _picker = ImagePicker();
   String? _capturedImagePath;
+  bool _isFlashOn = false;
+  late AnimationController _shutterAnim;
 
   @override
   void initState() {
     super.initState();
+    _shutterAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+      lowerBound: 0.85,
+      upperBound: 1.0,
+      value: 1.0,
+    );
     _initializeCamera();
   }
 
@@ -28,29 +38,28 @@ class _CameraPageState extends State<CameraPage> {
     try {
       cameras = await availableCameras();
       if (cameras != null && cameras!.isNotEmpty) {
-        _controller = CameraController(cameras![0], ResolutionPreset.high);
+        _controller = CameraController(
+          cameras![0],
+          ResolutionPreset.high,
+          enableAudio: false,
+        );
         await _controller!.initialize();
-        if (mounted) {
-          setState(() {
-            _isCameraInitialized = true;
-          });
-        }
+        if (mounted) setState(() => _isCameraInitialized = true);
       }
     } catch (e) {
       if (kDebugMode) print('Error initializing camera: $e');
     }
   }
 
-  /// Takes a picture and immediately returns to the previous screen with the
-  /// image path. Analysis is handled by HomePage so there is no race condition
-  /// between Navigator.pop and a pending upload.
   Future<void> _takePicture() async {
     if (_controller == null || !_controller!.value.isInitialized) return;
+    // Shutter animation
+    await _shutterAnim.reverse();
+    _shutterAnim.forward();
     try {
       final XFile image = await _controller!.takePicture();
       setState(() => _capturedImagePath = image.path);
       if (!mounted) return;
-      // Return the path — HomePage will trigger analysis automatically.
       Navigator.pop(context, image.path);
     } catch (e) {
       if (kDebugMode) print('Error taking picture: $e');
@@ -66,11 +75,11 @@ class _CameraPageState extends State<CameraPage> {
 
   Future<void> _pickImageFromGallery() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      final XFile? image =
+          await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
         setState(() => _capturedImagePath = image.path);
         if (!mounted) return;
-        // Return selected image to HomePage for analysis.
         Navigator.pop(context, image.path);
       }
     } catch (e) {
@@ -78,11 +87,20 @@ class _CameraPageState extends State<CameraPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Error selecting image'),
-          backgroundColor: Colors.red,
-        ),
+            content: Text('Error selecting image'),
+            backgroundColor: Colors.red),
       );
     }
+  }
+
+  Future<void> _toggleFlash() async {
+    if (_controller == null) return;
+    try {
+      _isFlashOn = !_isFlashOn;
+      await _controller!.setFlashMode(
+          _isFlashOn ? FlashMode.torch : FlashMode.off);
+      setState(() {});
+    } catch (_) {}
   }
 
   Future<void> _switchCamera() async {
@@ -93,7 +111,8 @@ class _CameraPageState extends State<CameraPage> {
       orElse: () => cameras![0],
     );
     await _controller?.dispose();
-    _controller = CameraController(newCamera, ResolutionPreset.high);
+    _controller = CameraController(newCamera, ResolutionPreset.high,
+        enableAudio: false);
     try {
       await _controller!.initialize();
       if (mounted) setState(() {});
@@ -104,6 +123,7 @@ class _CameraPageState extends State<CameraPage> {
 
   @override
   void dispose() {
+    _shutterAnim.dispose();
     _controller?.dispose();
     super.dispose();
   }
@@ -111,224 +131,197 @@ class _CameraPageState extends State<CameraPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF893939),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // ── Camera preview ──────────────────────────────────────────────
-            Positioned.fill(
-              child: _isCameraInitialized && _controller != null
-                  ? CameraPreview(_controller!)
-                  : Container(
-                      color: const Color(0xFF893939),
-                      child: const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(color: Colors.white),
-                            SizedBox(height: 16),
-                            Text(
-                              'Initializing Camera...',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      ),
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ── Full-screen camera preview ──────────────────────────────
+          _isCameraInitialized && _controller != null
+              ? CameraPreview(_controller!)
+              : Container(
+                  color: Colors.black,
+                  child: const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(
+                            color: Color(0xFF6C63FF)),
+                        SizedBox(height: 16),
+                        Text('Initializing Camera...',
+                            style: TextStyle(
+                                color: Colors.white70, fontSize: 14)),
+                      ],
                     ),
-            ),
+                  ),
+                ),
 
-            // ── Rule-of-thirds grid ─────────────────────────────────────────
-            if (_isCameraInitialized)
-              Positioned.fill(child: CustomPaint(painter: _GridPainter())),
+          // ── Grid overlay ────────────────────────────────────────────
+          if (_isCameraInitialized)
+            Positioned.fill(child: CustomPaint(painter: _GridPainter())),
 
-            // ── Top bar ─────────────────────────────────────────────────────
-            Positioned(
-              top: 16,
-              left: 0,
-              right: 0,
+          // ── Top bar ─────────────────────────────────────────────────
+          SafeArea(
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.flash_off, color: Colors.white),
-                    onPressed: () {},
+                  // Back
+                  _TopBarButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    onTap: () => Navigator.pop(context),
                   ),
-                  const Icon(Icons.expand_less, color: Colors.white),
-                  IconButton(
-                    icon: const Icon(Icons.switch_camera, color: Colors.white),
-                    onPressed: _switchCamera,
+                  // Flash
+                  _TopBarButton(
+                    icon: _isFlashOn
+                        ? Icons.flash_on_rounded
+                        : Icons.flash_off_rounded,
+                    onTap: _toggleFlash,
+                    active: _isFlashOn,
+                  ),
+                  // Switch camera
+                  _TopBarButton(
+                    icon: Icons.flip_camera_ios_rounded,
+                    onTap: _switchCamera,
                   ),
                 ],
               ),
             ),
+          ),
 
-            // ── Bottom controls ─────────────────────────────────────────────
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                color: Colors.black.withOpacity(0.3),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _ModeText('PHOTO', isSelected: true),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        // Gallery
-                        Flexible(
-                          flex: 1,
-                          child: GestureDetector(
-                            onTap: _pickImageFromGallery,
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                  maxWidth: 56, maxHeight: 56,
-                                  minWidth: 36, minHeight: 36),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.3),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(Icons.photo_library,
-                                    color: Colors.white, size: 24),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // Shutter
-                        Flexible(
-                          flex: 2,
-                          child: GestureDetector(
-                            onTap: _takePicture,
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                  minWidth: 56, minHeight: 56,
-                                  maxWidth: 96, maxHeight: 96),
-                              child: Container(
-                                width: double.infinity,
-                                height: double.infinity,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border:
-                                      Border.all(color: Colors.white, width: 6),
-                                ),
-                                child: Center(
-                                  child: Container(
-                                    width: 56,
-                                    height: 56,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // Last captured thumbnail
-                        Flexible(
-                          flex: 1,
-                          child: GestureDetector(
-                            onTap: () {
-                              if (_capturedImagePath != null) {
-                                _showImagePreview(_capturedImagePath!);
-                              }
-                            },
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                  maxWidth: 56, maxHeight: 56,
-                                  minWidth: 36, minHeight: 36),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.3),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: _capturedImagePath != null
-                                    ? ClipOval(
-                                        child: Image.file(
-                                          File(_capturedImagePath!),
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) =>
-                                              const Icon(Icons.image,
-                                                  color: Colors.white,
-                                                  size: 24),
-                                        ),
-                                      )
-                                    : const Icon(Icons.image,
-                                        color: Colors.white, size: 24),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text('0.5', style: TextStyle(color: Colors.white)),
-                        SizedBox(width: 24),
-                        Text('1x',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16)),
-                        SizedBox(width: 24),
-                        Text('2x', style: TextStyle(color: Colors.white)),
-                      ],
-                    ),
+          // ── Bottom controls ─────────────────────────────────────────
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.85),
+                    Colors.transparent,
                   ],
+                  stops: const [0.0, 1.0],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+              padding: EdgeInsets.only(
+                left: 32,
+                right: 32,
+                bottom: MediaQuery.of(context).padding.bottom + 24,
+                top: 32,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Mode label
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6C63FF).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: const Color(0xFF6C63FF).withOpacity(0.5)),
+                    ),
+                    child: const Text(
+                      'PHOTO',
+                      style: TextStyle(
+                        color: Color(0xFF6C63FF),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
 
-  void _showImagePreview(String imagePath) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(ctx).size.height * 0.8,
-                maxWidth: MediaQuery.of(ctx).size.width * 0.9,
+                  // Controls row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Gallery
+                      GestureDetector(
+                        onTap: _pickImageFromGallery,
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.3)),
+                          ),
+                          child: _capturedImagePath != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.file(
+                                    File(_capturedImagePath!),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) =>
+                                        const Icon(Icons.photo_library,
+                                            color: Colors.white, size: 24),
+                                  ),
+                                )
+                              : const Icon(Icons.photo_library_outlined,
+                                  color: Colors.white, size: 26),
+                        ),
+                      ),
+
+                      // Shutter button
+                      ScaleTransition(
+                        scale: _shutterAnim,
+                        child: GestureDetector(
+                          onTap: _takePicture,
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: Colors.white, width: 3),
+                              color: Colors.transparent,
+                            ),
+                            child: Center(
+                              child: Container(
+                                width: 64,
+                                height: 64,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Switch camera
+                      GestureDetector(
+                        onTap: _switchCamera,
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.3)),
+                          ),
+                          child: const Icon(Icons.flip_camera_android_rounded,
+                              color: Colors.white, size: 26),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              child: Image.file(File(imagePath), fit: BoxFit.contain),
             ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Close'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Share'),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -336,41 +329,57 @@ class _CameraPageState extends State<CameraPage> {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+class _TopBarButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool active;
+
+  const _TopBarButton({
+    required this.icon,
+    required this.onTap,
+    this.active = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: active
+              ? const Color(0xFF6C63FF).withOpacity(0.3)
+              : Colors.black.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: active
+                ? const Color(0xFF6C63FF)
+                : Colors.white.withOpacity(0.2),
+          ),
+        ),
+        child: Icon(icon,
+            color: active ? const Color(0xFF6C63FF) : Colors.white,
+            size: 20),
+      ),
+    );
+  }
+}
+
 class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.2)
-      ..strokeWidth = 1;
+      ..color = Colors.white.withOpacity(0.15)
+      ..strokeWidth = 0.8;
     for (int i = 1; i < 3; i++) {
-      final dx = size.width * i / 3;
-      canvas.drawLine(Offset(dx, 0), Offset(dx, size.height), paint);
-    }
-    for (int i = 1; i < 3; i++) {
-      final dy = size.height * i / 3;
-      canvas.drawLine(Offset(0, dy), Offset(size.width, dy), paint);
+      canvas.drawLine(Offset(size.width * i / 3, 0),
+          Offset(size.width * i / 3, size.height), paint);
+      canvas.drawLine(Offset(0, size.height * i / 3),
+          Offset(size.width, size.height * i / 3), paint);
     }
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _ModeText extends StatelessWidget {
-  final String text;
-  final bool isSelected;
-
-  const _ModeText(this.text, {this.isSelected = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: isSelected ? Colors.yellow : Colors.white,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        fontSize: 12,
-      ),
-    );
-  }
 }
